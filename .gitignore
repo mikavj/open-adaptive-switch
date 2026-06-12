@@ -1,0 +1,9 @@
+# Local flash state (per-machine, written by flash.sh)
+.flash_state
+
+# Editor/OS noise
+.DS_Store
+*.bak
+
+# Arduino build output
+build/
