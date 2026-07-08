@@ -5,6 +5,59 @@
 
 import SwiftUI
 
+// Hex <-> Color for storing the per-switch dome color in UserDefaults.
+extension Color {
+    init?(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let v = UInt32(s, radix: 16) else { return nil }
+        self = Color(
+            red: Double((v >> 16) & 0xFF) / 255,
+            green: Double((v >> 8) & 0xFF) / 255,
+            blue: Double(v & 0xFF) / 255)
+    }
+
+    var hexString: String {
+        let ui = UIColor(self)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ui.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "#%02X%02X%02X",
+                      Int(round(r * 255)), Int(round(g * 255)), Int(round(b * 255)))
+    }
+}
+
+// A rendered arcade-style dome button, so the app icon can match the
+// physical switch a family built.
+struct DomeSwitch: View {
+    let color: Color
+    var size: CGFloat = 40
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black.opacity(0.22))
+                .frame(width: size, height: size)
+            Circle()
+                .fill(RadialGradient(
+                    colors: [color, color.opacity(0.68)],
+                    center: UnitPoint(x: 0.36, y: 0.3),
+                    startRadius: size * 0.03,
+                    endRadius: size * 0.62))
+                .frame(width: size * 0.82, height: size * 0.82)
+                .overlay(
+                    Circle().strokeBorder(Color.black.opacity(0.18), lineWidth: max(1, size * 0.03))
+                        .frame(width: size * 0.82, height: size * 0.82))
+            Ellipse()
+                .fill(Color.white.opacity(0.55))
+                .frame(width: size * 0.3, height: size * 0.16)
+                .offset(x: -size * 0.13, y: -size * 0.19)
+                .blur(radius: size * 0.02)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 struct BatteryCard: View {
     let reading: BatteryReading?
 

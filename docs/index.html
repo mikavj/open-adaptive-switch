@@ -351,6 +351,14 @@ function buildSlot(n) {
 }
 [0, 1, 2].forEach(buildSlot);
 
+// Keep the name to printable ASCII, which is safe in a Bluetooth name;
+// this strips emoji, accented letters, and control characters (all of
+// which are multi-byte or problematic over BLE).
+$("name").addEventListener("input", (e) => {
+  const clean = e.target.value.replace(/[^\x20-\x7E]/g, "");
+  if (clean !== e.target.value) e.target.value = clean;
+});
+
 function slotVisibility() {
   const mode = Number($("mode").value);
   $("slot1").classList.toggle("hidden", mode === 0);

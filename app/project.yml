@@ -1,4 +1,4 @@
-name: AdaptSwitch
+name: OpenAdaptiveSwitch
 options:
   bundleIdPrefix: com.mikavj
   deploymentTarget:
@@ -8,7 +8,7 @@ packages:
     url: https://github.com/NordicSemiconductor/IOS-DFU-Library
     from: 4.16.0
 targets:
-  AdaptSwitch:
+  OpenAdaptiveSwitch:
     type: application
     platform: iOS
     sources:
@@ -19,7 +19,7 @@ targets:
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: Open Adaptive Switch
+        CFBundleDisplayName: OA Switch
         NSBluetoothAlwaysUsageDescription: >-
           This app connects to your Open Adaptive Switch over Bluetooth to
           change its settings and install firmware updates.
@@ -34,7 +34,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mikavj.adaptswitch
+        PRODUCT_BUNDLE_IDENTIFIER: com.mikavj.openadaptiveswitch
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: 1
         SWIFT_VERSION: "5.0"

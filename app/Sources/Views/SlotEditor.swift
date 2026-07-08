@@ -57,6 +57,8 @@ struct SlotEditor: View {
                 Text(modifierSummary).foregroundStyle(.secondary)
             }
         }
+        // Keep the menu open so several modifiers can be toggled at once.
+        .menuActionDismissBehavior(.disabled)
     }
 
     // Selection is the keycode, with 255 standing in for "custom".

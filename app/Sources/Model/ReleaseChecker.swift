@@ -55,6 +55,33 @@ enum ReleaseChecker {
                                zipURL: zip.browser_download_url, notes: release.body)
     }
 
+    // All published releases that carry an update package, newest first.
+    // Used for the version picker and rollback.
+    static func all() async throws -> [FirmwareRelease] {
+        let url = URL(string: "https://api.github.com/repos/\(repo)/releases?per_page=50")!
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse else { throw CheckError.badResponse(0) }
+        if http.statusCode == 404 { return [] }
+        guard http.statusCode == 200 else { throw CheckError.badResponse(http.statusCode) }
+        struct Asset: Decodable {
+            let name: String
+            let browser_download_url: URL
+        }
+        struct Release: Decodable {
+            let tag_name: String
+            let body: String?
+            let assets: [Asset]
+        }
+        let releases = try JSONDecoder().decode([Release].self, from: data)
+        return releases.compactMap { r in
+            guard let zip = r.assets.first(where: { $0.name.hasSuffix(".zip") }) else { return nil }
+            var v = r.tag_name
+            if v.lowercased().hasPrefix("v") { v.removeFirst() }
+            return FirmwareRelease(version: v, zipName: zip.name,
+                                   zipURL: zip.browser_download_url, notes: r.body)
+        }
+    }
+
     // Download the update package to a local file the DFU library can read.
     static func download(_ release: FirmwareRelease) async throws -> URL {
         let (temp, response) = try await URLSession.shared.download(from: release.zipURL)

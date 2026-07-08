@@ -6,7 +6,7 @@
 import SwiftUI
 
 @main
-struct AdaptSwitchApp: App {
+struct OpenAdaptiveSwitchApp: App {
     @StateObject private var manager = SwitchManager()
 
     var body: some Scene {

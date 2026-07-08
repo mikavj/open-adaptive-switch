@@ -1,8 +1,9 @@
 // Open Adaptive Switch - guided firmware update.
 //
-// Flow: pick a package (latest release or a local file), put the switch
-// into update mode, find it advertising as a DFU target, stream the
-// package, done. Settings on the switch survive.
+// Pick a version (latest, any published release, or a local file), or roll
+// back to the version that was on the switch before the last update, then
+// put the switch into update mode and stream the package. Settings on the
+// switch survive.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Open Adaptive Switch contributors
@@ -15,9 +16,24 @@ struct FirmwareUpdateView: View {
     @StateObject private var dfu = DFUManager()
     @Environment(\.dismiss) private var dismiss
 
+    // The version the switch ran before its last update, for rollback.
+    // The version this switch ran before its last update, for rollback.
+    // Stored per device by the manager, so several switches don't share
+    // one rollback target.
+    private var previousVersion: String {
+        guard let id = manager.connectedID else { return "" }
+        return manager.previousVersion(for: id)
+    }
+
     let latestRelease: FirmwareRelease?
 
+    private static let fileTag = "\u{0000}file"
+
+    @State private var releases: [FirmwareRelease] = []
+    @State private var loadingReleases = false
+    @State private var selectedTag = ""
     @State private var packageURL: URL?
+    @State private var packageLabel = ""
     @State private var downloading = false
     @State private var showFilePicker = false
     @State private var errorText: String?
@@ -25,7 +41,7 @@ struct FirmwareUpdateView: View {
     var body: some View {
         NavigationStack {
             List {
-                stepPackage
+                stepSource
                 if packageURL != nil { stepInstall }
                 if let errorText {
                     Section {
@@ -45,67 +61,76 @@ struct FirmwareUpdateView: View {
                 }
             }
             .fileImporter(isPresented: $showFilePicker,
-                          allowedContentTypes: [UTType.zip]) { result in
-                switch result {
-                case .success(let url):
-                    // Copy out of the security-scoped location so the DFU
-                    // library can read it later.
-                    let ok = url.startAccessingSecurityScopedResource()
-                    defer { if ok { url.stopAccessingSecurityScopedResource() } }
-                    let dest = FileManager.default.temporaryDirectory
-                        .appendingPathComponent(url.lastPathComponent)
-                    try? FileManager.default.removeItem(at: dest)
-                    do {
-                        try FileManager.default.copyItem(at: url, to: dest)
-                        packageURL = dest
-                        errorText = nil
-                    } catch {
-                        errorText = "Couldn't read that file: \(error.localizedDescription)"
-                    }
-                case .failure:
-                    break
-                }
-            }
+                          allowedContentTypes: [UTType.zip]) { handleFile($0) }
+            .onAppear(perform: loadReleases)
         }
         .interactiveDismissDisabled(dfu.phase == .updating)
     }
 
-    private var stepPackage: some View {
-        Section("1. Update package") {
-            if let packageURL {
-                Label(packageURL.lastPathComponent, systemImage: "doc.zipper")
-                Button("Choose a different file") { showFilePicker = true }
-            } else {
+    // MARK: step 1 - choose what to install
+
+    private var installedVersion: String { manager.firmwareVersion ?? "" }
+    private var canRollBack: Bool {
+        !previousVersion.isEmpty && previousVersion != installedVersion
+            && releases.contains { $0.version == previousVersion }
+    }
+
+    private var stepSource: some View {
+        Section {
+            Picker("Version", selection: $selectedTag) {
                 if let latestRelease {
-                    Button {
-                        downloadRelease(latestRelease)
-                    } label: {
-                        if downloading {
-                            HStack {
-                                ProgressView()
-                                Text("Downloading \(latestRelease.zipName)...")
-                            }
-                        } else {
-                            Label("Download v\(latestRelease.version)", systemImage: "arrow.down.circle")
-                        }
-                    }
-                    .disabled(downloading)
+                    Text("Latest (v\(latestRelease.version))").tag(latestRelease.version)
                 }
+                ForEach(otherVersions, id: \.self) { v in
+                    Text("v\(v)").tag(v)
+                }
+                Text("From a file...").tag(Self.fileTag)
+            }
+            .onChange(of: selectedTag) { choose(selectedTag) }
+
+            if canRollBack {
                 Button {
-                    showFilePicker = true
+                    selectedTag = previousVersion
                 } label: {
-                    Label("Choose a .zip from Files", systemImage: "folder")
+                    Label("Roll back to v\(previousVersion)", systemImage: "arrow.uturn.backward")
                 }
             }
+
+            if loadingReleases {
+                HStack { ProgressView(); Text("Loading versions...") }
+                    .foregroundStyle(.secondary)
+            }
+            if downloading {
+                HStack { ProgressView(); Text("Downloading \(packageLabel)...") }
+                    .foregroundStyle(.secondary)
+            } else if packageURL != nil {
+                Label(packageLabel, systemImage: "doc.zipper")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Version")
+        } footer: {
+            Text("Choose the latest release, an older version, or a .zip you already have. Rolling back reinstalls the version the switch ran before its last update.")
         }
     }
 
+    // Versions other than the latest (latest is shown as its own row).
+    private var otherVersions: [String] {
+        releases.map(\.version).filter { $0 != latestRelease?.version }
+    }
+
+    // MARK: step 2 - install
+
     private var stepInstall: some View {
-        Section("2. Install") {
+        Section {
             switch dfu.phase {
             case .idle:
                 if manager.phase == .ready {
                     Button {
+                        // Remember what this switch is replacing, for a later rollback.
+                        if let id = manager.connectedID, !installedVersion.isEmpty {
+                            manager.setPreviousVersion(installedVersion, for: id)
+                        }
                         manager.send(.enterUpdateMode)
                         if let packageURL { dfu.start(firmwareURL: packageURL) }
                     } label: {
@@ -125,16 +150,12 @@ struct FirmwareUpdateView: View {
                         .foregroundStyle(.secondary)
                 }
             case .searching:
-                HStack {
-                    ProgressView()
-                    Text(dfu.statusText)
-                }
+                HStack { ProgressView(); Text(dfu.statusText) }
                 Text("This searches for about half a minute. To back out, press the switch's reset button once; it restarts with its old firmware.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             case .choosing:
-                Text(dfu.statusText)
-                    .font(.subheadline)
+                Text(dfu.statusText).font(.subheadline)
                 ForEach(dfu.candidates) { c in
                     Button {
                         dfu.select(c)
@@ -155,8 +176,7 @@ struct FirmwareUpdateView: View {
                     HStack {
                         Text(dfu.statusText)
                         Spacer()
-                        Text("\(dfu.progress)%")
-                            .monospacedDigit()
+                        Text("\(dfu.progress)%").monospacedDigit()
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -175,11 +195,48 @@ struct FirmwareUpdateView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+        } header: {
+            Text("Install")
         }
     }
 
-    private func downloadRelease(_ release: FirmwareRelease) {
+    // MARK: actions
+
+    private func loadReleases() {
+        guard releases.isEmpty else { return }
+        loadingReleases = true
+        Task {
+            do { releases = try await ReleaseChecker.all() }
+            catch { /* the version list just stays limited; file import still works */ }
+            loadingReleases = false
+            // Default to the latest (or newest available) and fetch it, so
+            // the common case needs no extra taps.
+            if selectedTag.isEmpty {
+                selectedTag = latestRelease?.version ?? releases.first?.version ?? Self.fileTag
+            }
+        }
+    }
+
+    private func choose(_ tag: String) {
+        errorText = nil
+        if tag == Self.fileTag {
+            packageURL = nil
+            showFilePicker = true
+            return
+        }
+        let release = (tag == latestRelease?.version ? latestRelease : nil)
+            ?? releases.first { $0.version == tag }
+        guard let release else {
+            errorText = "That version isn't available to download."
+            return
+        }
+        download(release)
+    }
+
+    private func download(_ release: FirmwareRelease) {
         downloading = true
+        packageURL = nil
+        packageLabel = "v\(release.version)"
         errorText = nil
         Task {
             do {
@@ -188,6 +245,27 @@ struct FirmwareUpdateView: View {
                 errorText = "Download failed: \(error.localizedDescription)"
             }
             downloading = false
+        }
+    }
+
+    private func handleFile(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            let ok = url.startAccessingSecurityScopedResource()
+            defer { if ok { url.stopAccessingSecurityScopedResource() } }
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent(url.lastPathComponent)
+            try? FileManager.default.removeItem(at: dest)
+            do {
+                try FileManager.default.copyItem(at: url, to: dest)
+                packageURL = dest
+                packageLabel = url.lastPathComponent
+                errorText = nil
+            } catch {
+                errorText = "Couldn't read that file: \(error.localizedDescription)"
+            }
+        case .failure:
+            break
         }
     }
 }

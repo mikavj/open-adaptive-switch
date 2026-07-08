@@ -15,6 +15,7 @@ struct DeviceView: View {
     @State private var showSaved = false
     @State private var sleepCustom = false
     @State private var sleepCustomText = ""
+    @AppStorage("autoUpdate") private var autoUpdate = true
 
     private let sleepPresets: [Int] = [5, 15, 30, 60, 120, 480]
 
@@ -28,7 +29,17 @@ struct DeviceView: View {
             }
 
             Section {
-                BatteryCard(reading: manager.battery)
+                HStack(spacing: 16) {
+                    BatteryCard(reading: manager.battery)
+                    if let id = manager.connectedID {
+                        DomeSwitch(color: manager.domeColor(for: id), size: 54)
+                    }
+                }
+                if let id = manager.connectedID {
+                    domeColorPicker(id)
+                }
+            } footer: {
+                Text("Pick a color to match the switch you built. This is just how the app shows it.")
             }
 
             Section {
@@ -83,6 +94,10 @@ struct DeviceView: View {
                     TextField("Switch name", text: $nameDraft)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .onChange(of: nameDraft) {
+                            let clean = sanitizedName(nameDraft)
+                            if clean != nameDraft { nameDraft = clean }
+                        }
                     Button("Save") {
                         let stored = manager.save(name: nameDraft.trimmingCharacters(in: .whitespaces))
                         nameNote = stored == nameDraft.trimmingCharacters(in: .whitespaces)
@@ -109,38 +124,47 @@ struct DeviceView: View {
                 }
             }
 
-            Section("Firmware") {
+            Section {
                 LabeledContent("Installed", value: manager.firmwareVersion ?? "unknown")
-                LabeledContent("Latest release") {
-                    if let release = manager.latestRelease {
-                        Text(release.version)
-                    } else if let releaseNote {
-                        Text(releaseNote).foregroundStyle(.secondary)
-                    } else {
-                        ProgressView()
-                    }
-                }
-                if let release = manager.latestRelease {
-                    if let installed = manager.firmwareVersion,
-                       ReleaseChecker.compare(release.version, installed) > 0 {
-                        Button {
-                            manager.updaterPresented = true
-                        } label: {
-                            Label("Install update", systemImage: "arrow.down.circle")
+                if autoUpdate {
+                    LabeledContent("Latest release") {
+                        if let release = manager.latestRelease {
+                            Text(release.version)
+                        } else if let releaseNote {
+                            Text(releaseNote).foregroundStyle(.secondary)
+                        } else {
+                            ProgressView()
                         }
-                    } else {
-                        Label("Up to date", systemImage: "checkmark.circle")
-                            .foregroundStyle(.green)
+                    }
+                    if let release = manager.latestRelease,
+                       let installed = manager.firmwareVersion {
+                        if ReleaseChecker.compare(release.version, installed) > 0 {
+                            Button {
+                                manager.updaterPresented = true
+                            } label: {
+                                Label("Install update", systemImage: "arrow.down.circle")
+                            }
+                        } else {
+                            Label("Up to date", systemImage: "checkmark.circle")
+                                .foregroundStyle(.green)
+                        }
                     }
                 }
                 Button {
                     manager.updaterPresented = true
                 } label: {
-                    Label("Update from a file...", systemImage: "doc.zipper")
+                    Label("Update, roll back, or pick a version...", systemImage: "arrow.triangle.2.circlepath")
                 }
+            } header: {
+                Text("Firmware")
+            } footer: {
+                Text(autoUpdate
+                     ? "Updates are never installed on their own; the switch only changes when you tap Install."
+                     : "Automatic checking is off. Use the button above to update, roll back, or choose a version.")
             }
 
             Section {
+                Toggle("Check for updates automatically", isOn: $autoUpdate)
                 Button {
                     manager.send(.restart)
                 } label: {
@@ -176,6 +200,9 @@ struct DeviceView: View {
             if sleepCustom { sleepCustomText = String(m) }
             checkRelease()
         }
+        .onChange(of: autoUpdate) {
+            if autoUpdate { checkRelease() }
+        }
         .onChange(of: manager.savedPulse) {
             withAnimation { showSaved = true }
             UIAccessibility.post(notification: .announcement, argument: "Saved")
@@ -189,6 +216,52 @@ struct DeviceView: View {
             Button("Reset and restart", role: .destructive) {
                 manager.send(.factoryReset)
             }
+        }
+    }
+
+    // Keep the name to printable ASCII, which is safe in a Bluetooth name;
+    // this strips emoji, accented letters, and control characters.
+    private func sanitizedName(_ s: String) -> String {
+        String(String.UnicodeScalarView(s.unicodeScalars.filter { $0.value >= 0x20 && $0.value <= 0x7E }))
+    }
+
+    @ViewBuilder
+    private func domeColorPicker(_ id: UUID) -> some View {
+        let presets: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .white, .black]
+        let currentHex = manager.domeColor(for: id).hexString
+        HStack(spacing: 10) {
+            ForEach(presets, id: \.hexString) { c in
+                Button {
+                    manager.setDomeColor(c, for: id)
+                } label: {
+                    Circle()
+                        .fill(c)
+                        .frame(width: 26, height: 26)
+                        .overlay(Circle().stroke(
+                            Color.primary.opacity(c.hexString == currentHex ? 0.9 : 0.2),
+                            lineWidth: c.hexString == currentHex ? 3 : 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(colorName(c))
+            }
+        }
+        ColorPicker("Custom color", selection: Binding(
+            get: { manager.domeColor(for: id) },
+            set: { manager.setDomeColor($0, for: id) }
+        ))
+    }
+
+    private func colorName(_ c: Color) -> String {
+        switch c.hexString {
+        case Color.red.hexString: return "Red"
+        case Color.orange.hexString: return "Orange"
+        case Color.yellow.hexString: return "Yellow"
+        case Color.green.hexString: return "Green"
+        case Color.blue.hexString: return "Blue"
+        case Color.purple.hexString: return "Purple"
+        case Color.white.hexString: return "White"
+        case Color.black.hexString: return "Black"
+        default: return "Color"
         }
     }
 
@@ -212,7 +285,7 @@ struct DeviceView: View {
     }
 
     private func checkRelease() {
-        guard manager.latestRelease == nil else { return }
+        guard autoUpdate, manager.latestRelease == nil else { return }
         Task {
             do {
                 manager.latestRelease = try await ReleaseChecker.latest()

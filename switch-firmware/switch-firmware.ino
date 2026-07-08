@@ -48,7 +48,7 @@
 
 using namespace Adafruit_LittleFS_Namespace;
 
-#define FW_VERSION "3.1.0"
+#define FW_VERSION "3.1.1"
 
 // =========================================================================
 // ====================== SETTINGS YOU MIGHT CHANGE ========================
@@ -116,6 +116,10 @@ const uint32_t BAT_SAMPLE_MS       = 30000;  // voltage sample cadence
 const uint8_t  BAT_BURST_READS     = 8;      // ADC reads averaged per sample
 const float    BAT_LOW_V           = 3.55;   // solid red status LED
 const float    BAT_CRITICAL_V      = 3.35;   // blinking red status LED
+// A charged cell relaxes to ~4.15V after unplugging. Hold the reading at
+// 100% until it falls below this, so a freshly charged switch keeps
+// showing full instead of dropping the moment it is unplugged.
+const float    FULL_HOLD_V         = 4.05;
 
 // ---- Persisted configuration -------------------------------------------
 // Written to internal flash (LittleFS) on every change; survives reboot
@@ -250,7 +254,8 @@ uint32_t lastBatSampleMs  = 0;
 float    batteryV         = 4.0;    // EMA-filtered volts
 uint8_t  reportedPercent  = 255;    // last value pushed over BLE
 uint8_t  batteryState     = BATT_DISCHARGING;
-uint8_t  socRatchet       = 100;    // monotonic percent while discharging
+uint8_t  displayedPct     = 255;    // smoothed percent (255 = uninitialized)
+bool     wasFull          = false;  // reached full-on-USB; hold 100 until it relaxes
 bool     buttonPrev       = HIGH;
 uint32_t buttonChangeMs   = 0;
 uint32_t buttonDownAtMs   = 0;
@@ -343,32 +348,54 @@ uint8_t voltageToPercent(uint16_t mv) {
 // Sample, filter, derive state, and push over BLE when something changed.
 //
 // Reporting rules (see README.md, Battery section):
-//   - While discharging the reported percent only ever falls (a ratchet),
-//     so BLE TX voltage rebound can't make the number bounce upward.
 //   - While charging the voltage reads high and no formula fixes that, so
 //     the percent is capped at 99 until the charger IC itself terminates.
-//   - Charger terminated with USB still present = 100.
+//   - A charged cell is held at 100 until it relaxes below FULL_HOLD_V, so
+//     unplugging a full switch doesn't drop the number.
+//   - The displayed percent falls at most 2 points per sample, so the
+//     upward-inflated charging reading eases down to the true resting
+//     value after unplug instead of jumping, and radio-sag transients
+//     while discharging can't bounce it (discharging never raises it).
 void batterySample() {
   float v = readBatteryVoltageOnce();
   batteryV += (v - batteryV) * 0.5f;   // EMA smoothing
   uint16_t mv = (uint16_t)(batteryV * 1000.0f);
 
-  uint8_t pct;
+  uint8_t target;
   if (chargerActive()) {
     batteryState = BATT_CHARGING;
-    pct = voltageToPercent(mv);
-    if (pct > 99) pct = 99;
-    socRatchet = pct;                  // re-arm the ratchet at this level
+    target = voltageToPercent(mv);
+    if (target > 99) target = 99;
   } else if (usbPowered()) {
     batteryState = BATT_FULL_USB;
-    pct = 100;
-    socRatchet = 100;
+    target = 100;
+    wasFull = true;
   } else {
     batteryState = BATT_DISCHARGING;
-    pct = voltageToPercent(mv);
-    if (pct > socRatchet) pct = socRatchet;   // never rises on battery
-    socRatchet = pct;
+    if (wasFull && batteryV >= FULL_HOLD_V) {
+      target = 100;                    // hold full until the cell relaxes
+    } else {
+      wasFull = false;
+      target = voltageToPercent(mv);
+    }
   }
+
+  // Glide the displayed value toward the target.
+  if (displayedPct == 255) {
+    displayedPct = target;             // first reading: adopt it directly
+  } else if (batteryState == BATT_FULL_USB) {
+    displayedPct = 100;
+  } else if (batteryState == BATT_CHARGING) {
+    // Track the (capped) charging reading directly: it rises as the cell
+    // fills, and this self-corrects a brief "full" misread at plug-in
+    // instead of pinning the display at 100 for the whole charge.
+    displayedPct = target;
+  } else if (target < displayedPct) {
+    // Discharging: fall at most 2 points per sample, and never rise (so a
+    // radio-sag rebound can't bounce the number up).
+    displayedPct = (displayedPct - target > 2) ? (displayedPct - 2) : target;
+  }
+  uint8_t pct = displayedPct;
 
   // Push to every connected link. The parameterless notify() targets
   // only the most recent connection, which starves whichever of the two

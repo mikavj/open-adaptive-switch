@@ -115,9 +115,7 @@ struct ScanView: View {
                             manager.connect(item)
                         } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: "button.programmable")
-                                    .font(.title2)
-                                    .foregroundStyle(Color.accentColor)
+                                DomeSwitch(color: manager.domeColor(for: item.id), size: 30)
                                 Text(item.name)
                                     .font(.body.weight(.medium))
                                 Spacer()

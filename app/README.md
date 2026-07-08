@@ -5,8 +5,8 @@ its button sends, set the sleep timer, rename it, pick the light color,
 watch the battery, and install firmware updates - all in one place, no
 extra apps.
 
-(The Xcode target and files are still named `AdaptSwitch` internally; the
-app's display name is "Open Adaptive Switch".)
+(The app's display name on the home screen is "OA Switch" so it fits
+under the icon; everywhere else it is "Open Adaptive Switch".)
 
 Firmware updates use Nordic's open-source DFU library (BSD-3-Clause),
 the same code their own update apps are built on, so the update path
@@ -17,10 +17,10 @@ stays available even if any single app disappears from the store.
 Requirements: Xcode 16 or newer, an Apple Developer account for running
 on a real device (Bluetooth does not work in the simulator).
 
-1. Open `AdaptSwitch.xcodeproj` in Xcode.
+1. Open `OpenAdaptiveSwitch.xcodeproj` in Xcode.
 2. In the project settings, Signing and Capabilities tab: pick your team
    and, if Xcode complains the bundle identifier is taken, change
-   `com.mikavj.adaptswitch` to something under your own domain.
+   `com.mikavj.openadaptiveswitch` to something under your own domain.
 3. Select your iPhone as the run destination and press Run. The first
    time, Xcode asks the phone to trust your developer certificate
    (Settings, General, VPN and Device Management).

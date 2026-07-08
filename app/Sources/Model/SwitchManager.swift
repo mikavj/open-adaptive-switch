@@ -139,6 +139,36 @@ final class SwitchManager: NSObject, ObservableObject {
         return config.name.isEmpty ? "Switch" : config.name
     }
 
+    var connectedID: UUID? { peripheral?.identifier }
+
+    // MARK: dome color (per switch, cosmetic, stored on the phone)
+
+    // Bumped when a color changes so views observing the manager refresh.
+    @Published private var domeVersion = 0
+
+    func domeColor(for id: UUID) -> Color {
+        if let hex = UserDefaults.standard.string(forKey: "dome.\(id.uuidString)"),
+           let c = Color(hex: hex) { return c }
+        return .red
+    }
+
+    func setDomeColor(_ color: Color, for id: UUID) {
+        UserDefaults.standard.set(color.hexString, forKey: "dome.\(id.uuidString)")
+        domeVersion += 1
+    }
+
+    // MARK: previous firmware version (per switch, for rollback)
+
+    // Stored per device so rolling back one switch can't target the
+    // version that was on a different switch.
+    func previousVersion(for id: UUID) -> String {
+        UserDefaults.standard.string(forKey: "prevfw.\(id.uuidString)") ?? ""
+    }
+
+    func setPreviousVersion(_ version: String, for id: UUID) {
+        UserDefaults.standard.set(version, forKey: "prevfw.\(id.uuidString)")
+    }
+
     // MARK: writes
 
     func save(mode: SwitchMode) {

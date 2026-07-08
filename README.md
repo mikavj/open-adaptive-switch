@@ -135,11 +135,18 @@ The firmware samples the cell through the onboard divider, maps voltage
 to percentage with a resting-voltage discharge table (the approach ZMK
 and Meshtastic use), and reports it over the standard BLE Battery
 Service - so it shows in the iOS Batteries widget - and in detail on the
-config page and app. Charging state comes from the charger IC's status
-pin, not guessed from voltage; while charging, the percentage is capped
-at 99 because a charging cell's voltage says nothing reliable about fill
-level. On battery, the reported number never bounces upward. The LED
-warns too: solid red below 3.55V, blinking red below 3.35V.
+config page and app. It is also put in the Bluetooth advertisement, so
+the app can show a level in its device list before connecting.
+
+Charging state comes from the charger IC's status pin, not guessed from
+voltage; while charging, the percentage is capped at 99 because a
+charging cell's voltage says nothing reliable about fill level. A charged
+cell is held at 100 until it relaxes below 4.05V, so unplugging a full
+switch doesn't drop the number. The displayed percent falls at most two
+points per sample, so the inflated charging reading eases down to the
+true resting value after unplugging instead of jumping, and radio-sag
+transients can't make it bounce. The LED warns too: solid red below
+3.55V, blinking red below 3.35V.
 
 There is no firmware low-voltage shutdown. An earlier version had one and
 it false-triggered on Bluetooth transmit sag. The 3.5V reporting floor
