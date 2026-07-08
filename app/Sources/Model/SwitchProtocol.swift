@@ -136,24 +136,45 @@ struct HIDModifier: Identifiable {
     ]
 }
 
+struct HIDKeyGroup: Identifiable {
+    let name: String
+    let keys: [(name: String, code: UInt8)]
+    var id: String { name }
+}
+
 enum HIDKey {
-    // The same catalog the web config page offers. USB HID keyboard usage codes.
-    static let common: [(name: String, code: UInt8)] = [
-        ("F13", 0x68), ("F14", 0x69), ("F15", 0x6A), ("F16", 0x6B),
-        ("F17", 0x6C), ("F18", 0x6D), ("F19", 0x6E), ("F20", 0x6F),
-        ("F21", 0x70), ("F22", 0x71), ("F23", 0x72), ("F24", 0x73),
-        ("Space", 0x2C), ("Enter", 0x28), ("Tab", 0x2B), ("Escape", 0x29),
-        ("Backspace", 0x2A),
-        ("Arrow up", 0x52), ("Arrow down", 0x51),
-        ("Arrow left", 0x50), ("Arrow right", 0x4F),
+    // USB HID keyboard usage codes, grouped for the picker. Sentinel 255
+    // ("Custom code") is handled separately by the editor.
+    static let groups: [HIDKeyGroup] = [
+        HIDKeyGroup(name: "Function keys", keys: [
+            ("F13", 0x68), ("F14", 0x69), ("F15", 0x6A), ("F16", 0x6B),
+            ("F17", 0x6C), ("F18", 0x6D), ("F19", 0x6E), ("F20", 0x6F),
+            ("F21", 0x70), ("F22", 0x71), ("F23", 0x72), ("F24", 0x73),
+        ]),
+        HIDKeyGroup(name: "Keys", keys: [
+            ("Space", 0x2C), ("Enter", 0x28), ("Tab", 0x2B),
+            ("Escape", 0x29), ("Backspace", 0x2A),
+            ("Arrow up", 0x52), ("Arrow down", 0x51),
+            ("Arrow left", 0x50), ("Arrow right", 0x4F),
+        ]),
+        HIDKeyGroup(name: "Numbers", keys: [
+            ("1", 0x1E), ("2", 0x1F), ("3", 0x20), ("4", 0x21), ("5", 0x22),
+            ("6", 0x23), ("7", 0x24), ("8", 0x25), ("9", 0x26), ("0", 0x27),
+        ]),
+        HIDKeyGroup(name: "Letters", keys: (0..<26).map { i in
+            (String(UnicodeScalar(UInt8(65 + i))), UInt8(0x04 + i))
+        }),
     ]
 
+    // Flat catalog for name lookups.
+    static let all: [(name: String, code: UInt8)] = groups.flatMap { $0.keys }
+
     static func name(for code: UInt8) -> String {
-        common.first(where: { $0.code == code })?.name ?? "Code \(code)"
+        all.first(where: { $0.code == code })?.name ?? "Code \(code)"
     }
 
-    static func isCommon(_ code: UInt8) -> Bool {
-        common.contains(where: { $0.code == code })
+    static func isKnown(_ code: UInt8) -> Bool {
+        all.contains(where: { $0.code == code })
     }
 }
 

@@ -13,6 +13,10 @@ struct DeviceView: View {
     @State private var showFactoryConfirm = false
     @State private var releaseNote: String?
     @State private var showSaved = false
+    @State private var sleepCustom = false
+    @State private var sleepCustomText = ""
+
+    private let sleepPresets: [Int] = [5, 15, 30, 60, 120, 480]
 
     var body: some View {
         List {
@@ -37,13 +41,7 @@ struct DeviceView: View {
                     }
                 }
                 ForEach(0..<manager.config.mode.slotCount, id: \.self) { slot in
-                    NavigationLink {
-                        KeyPickerView(slot: slot)
-                    } label: {
-                        LabeledContent(
-                            SwitchMode.slotLabel(slot, mode: manager.config.mode),
-                            value: manager.config.bindings[slot].display)
-                    }
+                    SlotEditor(slot: slot)
                 }
             } header: {
                 Text("Button behavior")
@@ -52,16 +50,26 @@ struct DeviceView: View {
             }
 
             Section {
-                Picker("Sleep after", selection: Binding(
-                    get: { manager.config.sleepMinutes },
-                    set: { manager.save(sleepMinutes: $0) }
-                )) {
+                Picker("Sleep after", selection: sleepSelection) {
                     Text("Never").tag(UInt16(0))
-                    ForEach([5, 15, 30, 60, 120, 480], id: \.self) { m in
+                    ForEach(sleepPresets, id: \.self) { m in
                         Text("\(m) minutes").tag(UInt16(m))
                     }
-                    if ![0, 5, 15, 30, 60, 120, 480].contains(Int(manager.config.sleepMinutes)) {
-                        Text("\(manager.config.sleepMinutes) minutes").tag(manager.config.sleepMinutes)
+                    Text("Custom...").tag(UInt16(0xFFFF))
+                }
+                if sleepCustom {
+                    HStack {
+                        Text("Minutes (0 to 1440)")
+                        Spacer()
+                        TextField("30", text: $sleepCustomText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(minWidth: 70, maxWidth: 110)
+                            .onChange(of: sleepCustomText) {
+                                if let v = Int(sleepCustomText), (0...1440).contains(v) {
+                                    manager.save(sleepMinutes: UInt16(v))
+                                }
+                            }
                     }
                 }
             } header: {
@@ -163,6 +171,9 @@ struct DeviceView: View {
         }
         .onAppear {
             nameDraft = manager.config.name
+            let m = Int(manager.config.sleepMinutes)
+            sleepCustom = m != 0 && !sleepPresets.contains(m)
+            if sleepCustom { sleepCustomText = String(m) }
             checkRelease()
         }
         .onChange(of: manager.savedPulse) {
@@ -179,6 +190,25 @@ struct DeviceView: View {
                 manager.send(.factoryReset)
             }
         }
+    }
+
+    // Sleep picker selection: a preset value, or 0xFFFF meaning "custom",
+    // which reveals the minutes field.
+    private var sleepSelection: Binding<UInt16> {
+        Binding(
+            get: {
+                if sleepCustom { return 0xFFFF }
+                return manager.config.sleepMinutes
+            },
+            set: { value in
+                if value == 0xFFFF {
+                    sleepCustom = true
+                    sleepCustomText = String(manager.config.sleepMinutes)
+                } else {
+                    sleepCustom = false
+                    manager.save(sleepMinutes: value)
+                }
+            })
     }
 
     private func checkRelease() {

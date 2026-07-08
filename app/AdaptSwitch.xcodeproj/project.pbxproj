@@ -14,11 +14,11 @@
 		8636F8BA03130652C6972B51 /* DFUManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D989CCB55A4FAFEF0D80990E /* DFUManager.swift */; };
 		9DAC119705706CEA1CBB62E1 /* ReleaseChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05B194839B7D81FE86ECADC /* ReleaseChecker.swift */; };
 		A328589071FD0441E1053CB7 /* AdaptSwitchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E65A5FB61CE40BA3333B0698 /* AdaptSwitchApp.swift */; };
-		AACADAEF617B441C303102E8 /* KeyPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B183D9AE11C987D08CE39491 /* KeyPickerView.swift */; };
 		C8A39482138E7E654FEE86E9 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D7E078D35C90D1EBCBAB48 /* ScanView.swift */; };
 		CF5F05C3A4AC827E06C9CA4C /* SwitchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A309B5F2580C3F8C0246F3 /* SwitchManager.swift */; };
 		E48945BC7A92012D2154D4BA /* NordicDFU in Frameworks */ = {isa = PBXBuildFile; productRef = DF59A36B1C81205CBFA2139C /* NordicDFU */; };
 		F13DD1A53B3A41E4F6CB1E1E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6009C7B3EBF89C5873FF3987 /* Assets.xcassets */; };
+		F1C449ED0665ADD67F59A215 /* SlotEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBD22D5589B52CF84DBAACAC /* SlotEditor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,14 +26,14 @@
 		38D7E078D35C90D1EBCBAB48 /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanView.swift; sourceTree = "<group>"; };
 		6009C7B3EBF89C5873FF3987 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97590E2483650BBF1DBDB656 /* SwitchProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchProtocol.swift; sourceTree = "<group>"; };
-		B183D9AE11C987D08CE39491 /* KeyPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyPickerView.swift; sourceTree = "<group>"; };
 		B32C5DAE436356D0619D9CB2 /* FirmwareUpdateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateView.swift; sourceTree = "<group>"; };
 		BDF857292B8224100E236C9D /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		C05B194839B7D81FE86ECADC /* ReleaseChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseChecker.swift; sourceTree = "<group>"; };
+		CBD22D5589B52CF84DBAACAC /* SlotEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotEditor.swift; sourceTree = "<group>"; };
 		D7508635DAEFBFD4FD69822C /* DeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceView.swift; sourceTree = "<group>"; };
 		D989CCB55A4FAFEF0D80990E /* DFUManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DFUManager.swift; sourceTree = "<group>"; };
 		E65A5FB61CE40BA3333B0698 /* AdaptSwitchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptSwitchApp.swift; sourceTree = "<group>"; };
-		FA66E392A969B8228DB38F7F /* AdaptSwitch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AdaptSwitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA66E392A969B8228DB38F7F /* AdaptSwitch.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AdaptSwitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,8 +92,8 @@
 				BDF857292B8224100E236C9D /* Components.swift */,
 				D7508635DAEFBFD4FD69822C /* DeviceView.swift */,
 				B32C5DAE436356D0619D9CB2 /* FirmwareUpdateView.swift */,
-				B183D9AE11C987D08CE39491 /* KeyPickerView.swift */,
 				38D7E078D35C90D1EBCBAB48 /* ScanView.swift */,
+				CBD22D5589B52CF84DBAACAC /* SlotEditor.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -178,9 +178,9 @@
 				8636F8BA03130652C6972B51 /* DFUManager.swift in Sources */,
 				158040D7915ED781E2217FDE /* DeviceView.swift in Sources */,
 				145E1BB1E545A633D78CEB98 /* FirmwareUpdateView.swift in Sources */,
-				AACADAEF617B441C303102E8 /* KeyPickerView.swift in Sources */,
 				9DAC119705706CEA1CBB62E1 /* ReleaseChecker.swift in Sources */,
 				C8A39482138E7E654FEE86E9 /* ScanView.swift in Sources */,
+				F1C449ED0665ADD67F59A215 /* SlotEditor.swift in Sources */,
 				CF5F05C3A4AC827E06C9CA4C /* SwitchManager.swift in Sources */,
 				6A47C186656DC2945863AEC1 /* SwitchProtocol.swift in Sources */,
 			);
@@ -197,7 +197,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = NA3CQULNCM;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -282,7 +281,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = NA3CQULNCM;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

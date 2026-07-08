@@ -10,7 +10,18 @@ struct DiscoveredSwitch: Identifiable {
     let peripheral: CBPeripheral
     var name: String
     var rssi: Int
+    var battery: UInt8?        // percent, from advertised manufacturer data
+    var charging: Bool = false
     var id: UUID { peripheral.identifier }
+}
+
+// Parse the switch's advertised manufacturer data: [0xFF, 0xFF, percent,
+// state]. Returns nil for anything else.
+private func parseAdvBattery(_ data: Data?) -> (percent: UInt8, charging: Bool)? {
+    guard let data, data.count >= 4, data[0] == 0xFF, data[1] == 0xFF else { return nil }
+    let pct = min(data[2], 100)
+    let charging = data[3] == 1 || data[3] == 2
+    return (pct, charging)
 }
 
 @MainActor
@@ -211,13 +222,20 @@ extension SwitchManager: CBCentralManagerDelegate {
                                     rssi RSSI: NSNumber) {
         let advName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         let rssi = RSSI.intValue
+        let batt = parseAdvBattery(advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data)
         Task { @MainActor in
             let name = advName ?? peripheral.name ?? "Switch"
             if let i = self.discovered.firstIndex(where: { $0.id == peripheral.identifier }) {
                 self.discovered[i].rssi = rssi
                 self.discovered[i].name = name
+                if let batt {
+                    self.discovered[i].battery = batt.percent
+                    self.discovered[i].charging = batt.charging
+                }
             } else {
-                self.discovered.append(DiscoveredSwitch(peripheral: peripheral, name: name, rssi: rssi))
+                self.discovered.append(DiscoveredSwitch(
+                    peripheral: peripheral, name: name, rssi: rssi,
+                    battery: batt?.percent, charging: batt?.charging ?? false))
                 self.discovered.sort { $0.rssi > $1.rssi }
             }
         }

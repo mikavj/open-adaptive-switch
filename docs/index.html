@@ -271,16 +271,28 @@ const CHR = {
 };
 const CMD = { reboot: 1, factory: 2, dfu: 3 };
 
-// HID keyboard usage codes (USB HID usage table, keyboard page).
-const KEYS = [
-  ["F13", 0x68], ["F14", 0x69], ["F15", 0x6A], ["F16", 0x6B],
-  ["F17", 0x6C], ["F18", 0x6D], ["F19", 0x6E], ["F20", 0x6F],
-  ["F21", 0x70], ["F22", 0x71], ["F23", 0x72], ["F24", 0x73],
-  ["Space", 0x2C], ["Enter", 0x28], ["Tab", 0x2B], ["Escape", 0x29],
-  ["Backspace", 0x2A],
-  ["Arrow up", 0x52], ["Arrow down", 0x51],
-  ["Arrow left", 0x50], ["Arrow right", 0x4F],
+// HID keyboard usage codes (USB HID usage table, keyboard page), grouped
+// for the dropdown.
+const KEY_GROUPS = [
+  ["Function keys", [
+    ["F13", 0x68], ["F14", 0x69], ["F15", 0x6A], ["F16", 0x6B],
+    ["F17", 0x6C], ["F18", 0x6D], ["F19", 0x6E], ["F20", 0x6F],
+    ["F21", 0x70], ["F22", 0x71], ["F23", 0x72], ["F24", 0x73],
+  ]],
+  ["Keys", [
+    ["Space", 0x2C], ["Enter", 0x28], ["Tab", 0x2B], ["Escape", 0x29],
+    ["Backspace", 0x2A],
+    ["Arrow up", 0x52], ["Arrow down", 0x51],
+    ["Arrow left", 0x50], ["Arrow right", 0x4F],
+  ]],
+  ["Numbers", [
+    ["1", 0x1E], ["2", 0x1F], ["3", 0x20], ["4", 0x21], ["5", 0x22],
+    ["6", 0x23], ["7", 0x24], ["8", 0x25], ["9", 0x26], ["0", 0x27],
+  ]],
+  ["Letters", Array.from({ length: 26 }, (_, i) =>
+    [String.fromCharCode(65 + i), 0x04 + i])],
 ];
+const KEYS = KEY_GROUPS.flatMap(([, ks]) => ks);   // flat lookup
 const MODS = [["Ctrl", 1], ["Shift", 2], ["Alt", 4], ["Cmd", 8]];
 
 let device = null, server = null, chars = {};
@@ -312,10 +324,15 @@ function setStatus(text, cls) {
 // ---- key pickers ----
 function buildSlot(n) {
   const sel = $("key" + n);
-  for (const [label, code] of KEYS) {
-    const o = document.createElement("option");
-    o.value = code; o.textContent = label;
-    sel.appendChild(o);
+  for (const [groupName, keys] of KEY_GROUPS) {
+    const og = document.createElement("optgroup");
+    og.label = groupName;
+    for (const [label, code] of keys) {
+      const o = document.createElement("option");
+      o.value = code; o.textContent = label;
+      og.appendChild(o);
+    }
+    sel.appendChild(og);
   }
   const custom = document.createElement("option");
   custom.value = "custom"; custom.textContent = "Custom key code...";
@@ -348,8 +365,9 @@ function readSlotUI(n) {
   const sel = $("key" + n);
   let code;
   if (sel.value === "custom") {
-    code = Number($("code" + n).value);
-    if (!Number.isInteger(code) || code < 0 || code > 255) return null;
+    const raw = $("code" + n).value.trim();
+    code = Number(raw);
+    if (raw === "" || !Number.isInteger(code) || code < 0 || code > 255) return null;
   } else {
     code = Number(sel.value);
   }
@@ -379,7 +397,9 @@ function onBatteryNotify(ev) { renderBattery(ev.target.value); }
 async function connect() {
   try {
     device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SVC_CONFIG] }, { namePrefix: "AdaptSwitch" }],
+      // Match on the custom service so only Open Adaptive Switch devices
+      // appear, whatever the user has renamed them to.
+      filters: [{ services: [SVC_CONFIG] }],
       optionalServices: [SVC_CONFIG, "device_information", "battery_service"],
     });
   } catch (e) {

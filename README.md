@@ -168,9 +168,9 @@ rather than waiting for it.
 
 ## Status and roadmap
 
-Working today: consolidated firmware (v3), the config page (live, with
-release v3.0.0 published), battery reporting, wireless and drag-and-drop
-updates, and the iOS app source.
+Working today: consolidated firmware (v3), the config page and the iOS
+app, live battery reporting (including a level shown in the app's device
+list before connecting), and wireless and drag-and-drop updates.
 
 Open threads:
 

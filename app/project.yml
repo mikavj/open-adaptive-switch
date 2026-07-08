@@ -19,10 +19,10 @@ targets:
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: AdaptSwitch
+        CFBundleDisplayName: Open Adaptive Switch
         NSBluetoothAlwaysUsageDescription: >-
-          AdaptSwitch connects to your Open Adaptive Switch over Bluetooth
-          to change its settings and install firmware updates.
+          This app connects to your Open Adaptive Switch over Bluetooth to
+          change its settings and install firmware updates.
         UILaunchScreen: {}
         ITSAppUsesNonExemptEncryption: false
         UISupportedInterfaceOrientations:

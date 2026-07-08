@@ -24,6 +24,15 @@ appear in the chooser.
 The switch accepts two simultaneous connections: the tablet using it as
 a switch, and one configuration client.
 
+### Advertised battery
+
+The scan response also carries manufacturer-specific data so a scanner
+can show a battery level before connecting: company id `0xFFFF` (the
+unassigned id, fine for a DIY device) followed by two bytes, percent
+then state (0 = on battery, 1 = charging, 2 = charged on USB). The full
+four bytes as delivered by the OS are `FF FF <percent> <state>`. It is
+refreshed whenever the integer percent or the state changes.
+
 ## Config service characteristics
 
 Base UUID `F6BA8Exx-4094-4E31-B42A-5AAEF6FC5C7D`; the `xx` byte below.

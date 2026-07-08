@@ -62,6 +62,39 @@ struct BatteryCard: View {
     }
 }
 
+// Compact battery indicator for the scan list, fed by advertised data.
+struct MiniBattery: View {
+    let percent: UInt8
+    let charging: Bool
+
+    private var symbol: String {
+        if charging { return "battery.100percent.bolt" }
+        switch percent {
+        case 0...10: return "battery.0percent"
+        case 11...35: return "battery.25percent"
+        case 36...65: return "battery.50percent"
+        case 66...90: return "battery.75percent"
+        default: return "battery.100percent"
+        }
+    }
+
+    private var color: Color {
+        if charging { return .green }
+        if percent <= 15 { return .red }
+        if percent <= 30 { return .orange }
+        return .secondary
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol).foregroundStyle(color)
+            Text("\(percent)%").font(.caption).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Battery \(percent) percent\(charging ? ", charging" : "")")
+    }
+}
+
 struct SignalBars: View {
     let rssi: Int
 

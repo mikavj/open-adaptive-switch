@@ -109,12 +109,12 @@ One firmware for all units since v3:
 
 | Folder | Version | Notes |
 |---|---|---|
-| `switch-firmware/` | 3.0.0 | HID switch + BLE config service + battery reporting + OTA DFU |
+| `switch-firmware/` | 3.1.0 | HID switch + BLE config service + battery reporting + OTA DFU |
 
 The old per-unit builds (A = single key on F13, B = Space with hold
 action, C = three press-duration zones) became runtime modes; their
 sources are preserved outside the repo in the maintainer's archive, and
-in git history before v3. Default identity is `AdaptSwitch` sending F13;
+in git history before v3. Default identity is `Access Switch` sending F13;
 everything user-visible is set over BLE afterward
 ([docs/ble-protocol.md](docs/ble-protocol.md)).
 

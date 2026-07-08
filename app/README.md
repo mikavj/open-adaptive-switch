@@ -1,9 +1,12 @@
-# AdaptSwitch iOS app
+# Open Adaptive Switch iOS app
 
 Native companion app for Open Adaptive Switch: find a switch, change what
 its button sends, set the sleep timer, rename it, pick the light color,
 watch the battery, and install firmware updates - all in one place, no
 extra apps.
+
+(The Xcode target and files are still named `AdaptSwitch` internally; the
+app's display name is "Open Adaptive Switch".)
 
 Firmware updates use Nordic's open-source DFU library (BSD-3-Clause),
 the same code their own update apps are built on, so the update path

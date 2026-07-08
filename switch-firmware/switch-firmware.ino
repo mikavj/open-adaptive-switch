@@ -48,7 +48,7 @@
 
 using namespace Adafruit_LittleFS_Namespace;
 
-#define FW_VERSION "3.0.0"
+#define FW_VERSION "3.1.0"
 
 // =========================================================================
 // ====================== SETTINGS YOU MIGHT CHANGE ========================
@@ -56,11 +56,11 @@ using namespace Adafruit_LittleFS_Namespace;
 // Almost everything users care about is now runtime-configurable over
 // BLE. What remains here are hardware choices and defaults.
 
-// Default BLE name, used until the user renames the switch from the
-// config page. Keep names 15 chars or fewer: the advertising packet is
-// 31 bytes, and flags + TX power + appearance + HID UUID leave room for
-// a 15-char complete name.
-const char* DEFAULT_DEVICE_NAME = "AdaptSwitch";
+// Default BLE name, used until the user renames the switch from the app
+// or config page. Keep names 15 chars or fewer: the advertising packet is
+// 31 bytes, and flags + appearance + HID UUID leave room for a 15-char
+// complete name.
+const char* DEFAULT_DEVICE_NAME = "Access Switch";
 
 // ---- Button pin ----
 // XIAO nRF52840 Sense pin labels D0..D10 are all valid INPUT_PULLUP options.
@@ -124,7 +124,9 @@ const float    BAT_CRITICAL_V      = 3.35;   // blinking red status LED
 #define CONFIG_FILE   "/oas.cfg"
 #define CONFIG_TMP    "/oas.tmp"
 #define CONFIG_MAGIC  0x3353414FUL   // "OAS3" little-endian
-#define CONFIG_STRUCT_VERSION 1
+// Bump when the default settings change so existing boards adopt them on
+// the next flash. v2: default name changed to "Access Switch".
+#define CONFIG_STRUCT_VERSION 2
 
 // Modes: what a button press sends.
 enum : uint8_t {
@@ -387,6 +389,9 @@ void batterySample() {
       chrBattery.notify(c, payload, sizeof(payload));
     }
   }
+
+  // Also advertise the battery so scanners can show it before connecting.
+  refreshAdvBattery(pct, batteryState);
 }
 
 // =========================================================================
@@ -565,20 +570,54 @@ void disconnectCallback(uint16_t conn_hdl, uint8_t reason) {
 }
 
 // =========================================================================
-void startAdv() {
+// Advertised battery. The scan response carries manufacturer data
+// [0xFF, 0xFF, percent, state] so the app can show a battery level in the
+// "switches nearby" list before connecting. 0xFFFF is the unassigned
+// company ID (fine for a DIY device). State matches the battery
+// characteristic: 0 = on battery, 1 = charging, 2 = charged on USB.
+uint8_t advBattPct   = 100;
+uint8_t advBattState = BATT_DISCHARGING;
+
+// Build the advertising + scan-response payload with the current battery.
+// Dropping addTxPower keeps headroom for a full 15-char name alongside
+// the appearance and HID UUID in the 31-byte main packet.
+void buildAdvPayload() {
+  Bluefruit.Advertising.clearData();
+  Bluefruit.ScanResponse.clearData();
+
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-  Bluefruit.Advertising.addTxPower();
   Bluefruit.Advertising.addAppearance(BLE_APPEARANCE_HID_KEYBOARD);
   Bluefruit.Advertising.addService(blehid);   // 16-bit HID UUID, for iOS
   Bluefruit.Advertising.addName();
-  // The 128-bit config UUID goes in the scan response (no room in the
-  // main packet). Web Bluetooth merges both when filtering, so the
-  // config page can filter on the custom service.
+
+  // 128-bit config UUID in the scan response (no room in the main packet),
+  // plus the battery manufacturer data. Web Bluetooth and CoreBluetooth
+  // both merge the two when filtering, so clients still match the service.
   Bluefruit.ScanResponse.addService(svcConfig);
+  uint8_t mfg[4] = { 0xFF, 0xFF, advBattPct, advBattState };
+  Bluefruit.ScanResponse.addManufacturerData(mfg, sizeof(mfg));
+}
+
+void startAdv() {
+  buildAdvPayload();
   Bluefruit.Advertising.restartOnDisconnect(true);
   Bluefruit.Advertising.setInterval(32, 244);
   Bluefruit.Advertising.setFastTimeout(30);
   Bluefruit.Advertising.start(0);
+}
+
+// Rebuild and restart advertising when the advertised battery changes.
+// Restarting advertising does not disturb an existing connection, and the
+// percent changes only every few minutes, so the cost is negligible.
+void refreshAdvBattery(uint8_t pct, uint8_t state) {
+  if (pct == advBattPct && state == advBattState) return;
+  advBattPct   = pct;
+  advBattState = state;
+  if (Bluefruit.Advertising.isRunning()) {
+    Bluefruit.Advertising.stop();
+    buildAdvPayload();
+    Bluefruit.Advertising.start(0);
+  }
 }
 
 // =========================================================================

@@ -25,7 +25,7 @@ struct ScanView: View {
                         ContentUnavailableView {
                             Label("Bluetooth permission needed", systemImage: "hand.raised")
                         } description: {
-                            Text("AdaptSwitch talks to the switch over Bluetooth and can't work without it.")
+                            Text("This app talks to the switch over Bluetooth and can't work without it.")
                         } actions: {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 Link("Open Settings", destination: url)
@@ -42,7 +42,7 @@ struct ScanView: View {
                     }
                 }
             }
-            .navigationTitle("AdaptSwitch")
+            .navigationTitle("Open Adaptive Switch")
             .navigationDestination(isPresented: Binding(
                 get: { manager.phase == .ready },
                 set: { if !$0 { manager.disconnect() } }
@@ -114,13 +114,16 @@ struct ScanView: View {
                         Button {
                             manager.connect(item)
                         } label: {
-                            HStack {
+                            HStack(spacing: 10) {
                                 Image(systemName: "button.programmable")
                                     .font(.title2)
                                     .foregroundStyle(Color.accentColor)
                                 Text(item.name)
                                     .font(.body.weight(.medium))
                                 Spacer()
+                                if let pct = item.battery {
+                                    MiniBattery(percent: pct, charging: item.charging)
+                                }
                                 SignalBars(rssi: item.rssi)
                             }
                             .padding(.vertical, 4)
