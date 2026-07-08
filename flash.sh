@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Open Adaptive Switch contributors
 #
-# Detects a connected XIAO nRF52840 Sense, shows the last flash recorded
+# Detects a connected XIAO nRF52840 (plain or Sense), shows the last flash
 # on this host, lets you pick a firmware folder, compiles + uploads, then
 # records what was flashed.
 
@@ -12,8 +12,8 @@ set -uo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_FILE="$PROJECT_DIR/.flash_state"
-FQBN="Seeeduino:nrf52:xiaonRF52840Sense"
-BOARD_NAME="Seeed XIAO nRF52840 Sense"
+# Both XIAO nRF52840 variants work; the FQBN is picked to match whichever
+# is detected (the compiled firmware is identical apart from USB naming).
 
 cd "$PROJECT_DIR"
 
@@ -31,12 +31,20 @@ if [ "$(uname)" = "Linux" ]; then
   fi
 fi
 
-# --- 2. Detect board ---
-PORT=$(arduino-cli board list 2>/dev/null \
-  | awk -v b="$BOARD_NAME" 'index($0, b) {print $1; exit}')
+# --- 2. Detect board (plain XIAO nRF52840 or the Sense variant) ---
+BOARD_LINE=$(arduino-cli board list 2>/dev/null \
+  | grep "Seeed XIAO nRF52840" | head -1)
+PORT=$(echo "$BOARD_LINE" | awk '{print $1}')
+if echo "$BOARD_LINE" | grep -q "Sense"; then
+  FQBN="Seeeduino:nrf52:xiaonRF52840Sense"
+  BOARD_NAME="Seeed XIAO nRF52840 Sense"
+else
+  FQBN="Seeeduino:nrf52:xiaonRF52840"
+  BOARD_NAME="Seeed XIAO nRF52840"
+fi
 
 if [ -z "$PORT" ]; then
-  echo "ERROR: $BOARD_NAME not detected."
+  echo "ERROR: no Seeed XIAO nRF52840 detected."
   echo
   echo "Visible serial ports:"
   ls /dev/ttyACM* /dev/cu.usbmodem* 2>/dev/null | sed 's/^/  /' || echo "  (none)"

@@ -10,10 +10,15 @@ the config page over Bluetooth.
 
 ## Hardware per unit
 
-- MCU board: Seeed XIAO nRF52840 **Sense** (variant matters - the Sense
-  has the LSM6DS3 IMU and PDM mic onboard; non-Sense doesn't).
-  FQBN: `Seeeduino:nrf52:xiaonRF52840Sense`
-  USB VID:PID `2886:8045`
+- MCU board: Seeed XIAO nRF52840, the **plain** variant (about $10; the
+  Sense variant also works and only adds an IMU and microphone the
+  switch never uses - the battery circuit and pin map are identical,
+  verified against the schematic and the core's variant files).
+  FQBN: `Seeeduino:nrf52:xiaonRF52840` (plain) or
+  `Seeeduino:nrf52:xiaonRF52840Sense` (Sense).
+  A binary built for either variant runs on both; releases are built
+  with the plain FQBN. `flash.sh` picks the FQBN to match the board it
+  detects.
 - Button: tactile momentary, between **D0** and **GND**. Internal
   pull-up enabled in firmware (`INPUT_PULLUP`), so no external resistor.
 - Battery: 3.7V 250mAh LiPo, JST connector. Charged at 50mA by the
@@ -154,19 +159,26 @@ the release package.
 ./make_release.sh
 ```
 
-builds `switch-firmware`, and copies the OTA package the build already
-produces (the core runs `adafruit-nrfutil dfu genpkg --dev-type 0x0052
---sd-req 0x0123` on every compile) into
-`release/open-adaptive-switch-vX.Y.Z-ota.zip`.
+builds `switch-firmware` and produces three artifacts in `release/`:
+
+- `...-ota.zip` - the wireless update package (the core runs
+  `adafruit-nrfutil dfu genpkg --dev-type 0x0052 --sd-req 0x0123` on
+  every compile; the script copies the result).
+- `....uf2` - a drag-and-drop file for the bootloader's USB drive. The
+  core's own UF2 step is broken for this board (its wrapper script only
+  converts for one Tracker board), so the script calls the core's
+  `uf2conv.py` directly with family `0xADA52840`. The UF2 contains only
+  the application region (0x27000 up), so saved settings survive.
+- `....hex` - for wired flashing tools, optional.
 
 Publishing an update:
 
 1. Bump `FW_VERSION` in the sketch, commit, push.
 2. Run `./make_release.sh`.
 3. Create a GitHub release with tag `vX.Y.Z` (matching FW_VERSION) and
-   attach the .zip. The config page reads the latest release through the
-   GitHub API, compares against the version the switch reports, and links
-   the download.
+   attach the .zip and .uf2. The config page and the iOS app read the
+   latest release through the GitHub API, compare against the version
+   the switch reports, and link the download.
 
 Installing an update from a phone is described on the config page and in
 [docs/ble-protocol.md](docs/ble-protocol.md). In short: put the switch in

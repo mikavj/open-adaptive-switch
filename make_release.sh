@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
-# Build an over-the-air update package for a GitHub release.
+# Build the release artifacts: an over-the-air DFU package (.zip) and a
+# drag-and-drop bootloader file (.uf2), plus a .hex for wired tools.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Open Adaptive Switch contributors
 #
-# Compiles switch-firmware with exported binaries. The Seeed core's build
-# recipe already produces the Nordic DFU .zip (adafruit-nrfutil dfu genpkg
-# --dev-type 0x0052 --sd-req 0x0123); this script just puts a versioned
-# copy in release/ ready to attach to a GitHub release.
+# The build targets the plain XIAO nRF52840 by default; the same binary
+# runs on the Sense variant (identical MCU, SoftDevice, and pin map).
+# Override with: FQBN=Seeeduino:nrf52:xiaonRF52840Sense ./make_release.sh
+#
+# The Seeed core's own UF2 step is broken for this board (its wrapper
+# script only converts for one Tracker board), so the UF2 is produced
+# here by calling the core's uf2conv.py directly. Family 0xADA52840 is
+# nRF52840 + Adafruit bootloader.
 
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKETCH="$PROJECT_DIR/switch-firmware"
-FQBN="Seeeduino:nrf52:xiaonRF52840Sense"
-BUILD="$SKETCH/build/Seeeduino.nrf52.xiaonRF52840Sense"
+FQBN="${FQBN:-Seeeduino:nrf52:xiaonRF52840}"
+BUILD="$SKETCH/build/$(echo "$FQBN" | tr ':' '.')"
 
 VERSION=$(grep -E '^#define\s+FW_VERSION' "$SKETCH/switch-firmware.ino" \
   | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
@@ -23,25 +28,44 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-echo "Building Open Adaptive Switch v$VERSION..."
+# Locate the installed Seeed core (for uf2conv.py). Linux and macOS paths.
+CORE=""
+for d in "$HOME/Library/Arduino15" "$HOME/.arduino15"; do
+  hit=$(ls -d "$d/packages/Seeeduino/hardware/nrf52/"*/ 2>/dev/null | sort | tail -1)
+  if [ -n "$hit" ]; then CORE="$hit"; break; fi
+done
+UF2CONV="$CORE/tools/uf2conv/uf2conv.py"
+
+echo "Building Open Adaptive Switch v$VERSION ($FQBN)..."
 arduino-cli compile --fqbn "$FQBN" --export-binaries "$SKETCH"
 
 OTA_ZIP="$BUILD/switch-firmware.ino.zip"
-if [ ! -f "$OTA_ZIP" ]; then
-  echo "ERROR: build did not produce $OTA_ZIP" >&2
+HEX="$BUILD/switch-firmware.ino.hex"
+if [ ! -f "$OTA_ZIP" ] || [ ! -f "$HEX" ]; then
+  echo "ERROR: build did not produce $OTA_ZIP / $HEX" >&2
   exit 1
 fi
 
 mkdir -p "$PROJECT_DIR/release"
-OUT="$PROJECT_DIR/release/open-adaptive-switch-v$VERSION-ota.zip"
-cp "$OTA_ZIP" "$OUT"
-cp "$BUILD/switch-firmware.ino.hex" \
-   "$PROJECT_DIR/release/open-adaptive-switch-v$VERSION.hex"
+OUT_ZIP="$PROJECT_DIR/release/open-adaptive-switch-v$VERSION-ota.zip"
+OUT_UF2="$PROJECT_DIR/release/open-adaptive-switch-v$VERSION.uf2"
+OUT_HEX="$PROJECT_DIR/release/open-adaptive-switch-v$VERSION.hex"
+cp "$OTA_ZIP" "$OUT_ZIP"
+cp "$HEX" "$OUT_HEX"
+
+if [ -f "$UF2CONV" ]; then
+  python3 "$UF2CONV" -f 0xADA52840 -c -o "$OUT_UF2" "$HEX" >/dev/null
+  echo "UF2 written."
+else
+  echo "WARNING: uf2conv.py not found in the Seeed core; skipping the .uf2." >&2
+  echo "  (Expected under \$HOME/Library/Arduino15 or \$HOME/.arduino15.)" >&2
+fi
 
 echo
-echo "Release artifacts:"
-echo "  $OUT                (attach to the GitHub release; used by the DFU app)"
-echo "  release/open-adaptive-switch-v$VERSION.hex  (for wired flashing, optional)"
+echo "Release artifacts in release/:"
+echo "  open-adaptive-switch-v$VERSION-ota.zip  wireless update via the DFU app"
+echo "  open-adaptive-switch-v$VERSION.uf2      drag-and-drop update from any computer"
+echo "  open-adaptive-switch-v$VERSION.hex      wired flashing tools (optional)"
 echo
-echo "Publish: create release v$VERSION on GitHub and attach the .zip."
-echo "The config page finds it through the GitHub releases API."
+echo "Publish: create GitHub release v$VERSION and attach the .zip and .uf2."
+echo "The config page and app find them through the GitHub releases API."

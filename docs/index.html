@@ -71,12 +71,22 @@ side, and your settings stay on the switch itself.</p>
 
 <section id="unsupported" class="hidden">
   <h2>This browser can't talk to Bluetooth devices</h2>
-  <p id="unsupported-ios" class="hidden">
-    On an iPhone or iPad, open this page in the free
-    <a href="https://apps.apple.com/app/id1492822055">Bluefy browser</a>,
-    which adds the Bluetooth support Safari is missing.
-  </p>
-  <p><a id="bluefy-link" href="#" class="hidden"><strong>Open this page in Bluefy</strong></a></p>
+  <div id="unsupported-ios" class="hidden">
+    <p>Safari doesn't support Bluetooth from web pages, so on an iPhone or
+    iPad this page needs the free Bluefy browser. Two steps:</p>
+    <ol>
+      <li><a href="https://apps.apple.com/app/id1492822055"><strong>Get
+      Bluefy from the App Store</strong></a> (free, no account needed).</li>
+      <li>Come back here and tap
+      <a id="bluefy-link" href="#"><strong>Open this page in Bluefy</strong></a>.
+      This link only works once Bluefy is installed; without it, tapping
+      does nothing.</li>
+    </ol>
+    <p>There is also a native iOS app with the same controls plus built-in
+    firmware updates - see
+    <a href="https://github.com/mikavj/open-adaptive-switch/tree/main/app">the
+    app folder on GitHub</a>.</p>
+  </div>
   <p id="unsupported-other" class="hidden">
     On a computer or Android device, use Chrome or Edge. Firefox and Safari
     do not support Web Bluetooth.
@@ -124,7 +134,7 @@ side, and your settings stay on the switch itself.</p>
     <label id="slot0-label" for="key0">Key</label>
     <div class="row">
       <select id="key0"></select>
-      <input type="number" id="code0" min="0" max="255" class="hidden" placeholder="HID code" aria-label="Custom HID code">
+      <input type="number" id="code0" min="0" max="255" class="hidden" placeholder="Key code" aria-label="Custom key code">
     </div>
     <div class="mods" id="mods0"></div>
   </div>
@@ -132,7 +142,7 @@ side, and your settings stay on the switch itself.</p>
     <label id="slot1-label" for="key1">Hold key</label>
     <div class="row">
       <select id="key1"></select>
-      <input type="number" id="code1" min="0" max="255" class="hidden" placeholder="HID code" aria-label="Custom HID code">
+      <input type="number" id="code1" min="0" max="255" class="hidden" placeholder="Key code" aria-label="Custom key code">
     </div>
     <div class="mods" id="mods1"></div>
   </div>
@@ -140,7 +150,7 @@ side, and your settings stay on the switch itself.</p>
     <label id="slot2-label" for="key2">Long press key</label>
     <div class="row">
       <select id="key2"></select>
-      <input type="number" id="code2" min="0" max="255" class="hidden" placeholder="HID code" aria-label="Custom HID code">
+      <input type="number" id="code2" min="0" max="255" class="hidden" placeholder="Key code" aria-label="Custom key code">
     </div>
     <div class="mods" id="mods2"></div>
   </div>
@@ -175,7 +185,7 @@ side, and your settings stay on the switch itself.</p>
   <p class="sub">The new name is used after the switch restarts. If the
   switch was already paired, remove it in the iPad's Switch Control
   settings and pair again so iOS picks up the new name.</p>
-  <label for="accent">Status light color</label>
+  <label for="accent">Status light</label>
   <div class="row">
     <select id="accent">
       <option value="0">Red</option>
@@ -207,6 +217,20 @@ side, and your settings stay on the switch itself.</p>
       8 or below.</li>
       <li>Start the update. The switch reboots into the new firmware when
       it finishes. Your settings are kept.</li>
+    </ol>
+  </details>
+  <details>
+    <summary>How to install an update from any computer, no software</summary>
+    <ol>
+      <li>Download the release .uf2 file from the
+      <a href="https://github.com/mikavj/open-adaptive-switch/releases">releases
+      page</a>.</li>
+      <li>Plug the switch in over USB and double-tap its small reset
+      button. A USB drive appears.</li>
+      <li>Drag the .uf2 onto the drive. The switch reboots updated; your
+      settings are kept. (The copy dialog often reports an error at the
+      end - that is the drive vanishing on reboot, and the update still
+      succeeded.)</li>
     </ol>
   </details>
 </section>
@@ -294,7 +318,7 @@ function buildSlot(n) {
     sel.appendChild(o);
   }
   const custom = document.createElement("option");
-  custom.value = "custom"; custom.textContent = "Custom HID code...";
+  custom.value = "custom"; custom.textContent = "Custom key code...";
   sel.appendChild(custom);
   sel.addEventListener("change", () => {
     $("code" + n).classList.toggle("hidden", sel.value !== "custom");
@@ -541,7 +565,7 @@ guarded("btn-save-keys", "Saved", async () => {
   for (let n = 0; n < 3; n++) {
     const slot = readSlotUI(n);
     if (!slot) {
-      setStatus("The custom HID code must be a whole number from 0 to 255.", "warn");
+      setStatus("The custom key code must be a whole number from 0 to 255.", "warn");
       return false;
     }
     km.push(...slot);

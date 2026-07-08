@@ -1,6 +1,6 @@
 // =========================================================================
 // Open Adaptive Switch - consolidated firmware (v3)
-// Target: Seeed XIAO nRF52840 Sense
+// Target: Seeed XIAO nRF52840 (plain or Sense variant)
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Open Adaptive Switch contributors

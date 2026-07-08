@@ -10,3 +10,8 @@ build/
 
 # Release artifacts (attached to GitHub releases, not committed)
 release/
+
+# Xcode noise (the .xcodeproj itself is committed)
+xcuserdata/
+*.xcuserstate
+app/DerivedData/

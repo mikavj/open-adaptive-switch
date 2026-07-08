@@ -1,73 +1,80 @@
 # Open Adaptive Switch
 
 DIY wireless switches for iOS Switch Control, built around the Seeed XIAO
-nRF52840 Sense. Each unit is a single button in a box: press it and it
-sends a keystroke over Bluetooth LE, which an iPhone or iPad can treat as
-an accessibility switch input. The parts cost roughly $15 per unit, while
+nRF52840. Each unit is a single button in a box: press it and it sends a
+keystroke over Bluetooth LE, which an iPhone or iPad treats as an
+accessibility switch input. The parts cost roughly $12 per unit;
 comparable commercial Bluetooth switches sell for around $200.
 
 The project started as a way to give a child with a motor disability an
-affordable button for cause-and-effect games, and grew into a
-configurable switch a family can set up from a phone: which key it sends,
-one action or three, how long before it sleeps, its name, and firmware
-updates, all without a computer or a reflash.
+affordable button for cause-and-effect games. A family can set everything
+up from a phone: which key the button sends, one action or three, how
+long before it sleeps, its name, and firmware updates. No computer, no
+reflashing.
 
-This is a work in progress. The firmware works and is in daily testing,
-but enclosure designs, photos, and wiring diagrams are still to come.
+This is a work in progress. The firmware and configuration tools work;
+enclosure designs, photos, and wiring diagrams are still to come.
 
-## How it works
-
-The XIAO advertises as a BLE HID keyboard. iOS pairs with it through
-Settings, Accessibility, Switch Control, where any keystroke from an
-external keyboard can be assigned to a switch action (tap the screen, run
-a recipe, move the scanner). The firmware defaults to F13 because nothing
-else on the system uses the high F-keys, so several switches can be
-paired at once without colliding.
-
-A unit is:
+## Hardware
 
 | Part | Notes |
 |---|---|
-| Seeed XIAO nRF52840 Sense | the Sense variant, FQBN `Seeeduino:nrf52:xiaonRF52840Sense` |
+| Seeed XIAO nRF52840 | the plain variant, about $10; the Sense variant works identically |
 | Tactile momentary button | wired between D0 and GND, no resistor needed |
 | 3.7V 250mAh LiPo | JST connector, charged at 50mA over USB-C |
 | Enclosure | any box that fits; 3D-printable design planned |
 
-There is one firmware for every unit: `switch-firmware/`. What used to be
-three separate builds is now a runtime setting.
+Why this board: a BLE switch has to hold its connection all day on a
+small battery. The nRF52840 does that at roughly 0.1mA, which means
+months per charge; an ESP32 in its best buildable configuration draws
+about twenty times more and would need charging every few days. The
+whole wireless-keyboard community settled on this chip for the same
+reason.
+
+The switch works by advertising as a BLE HID keyboard. iOS pairs with it
+through Settings, Accessibility, Switch Control, where any key from an
+external keyboard can be assigned to a switch action. The firmware
+defaults to F13, which nothing else on the system uses, so several
+switches can be paired at once without colliding.
 
 ## Setting up a switch
 
-Configuration happens on a web page that talks to the switch over
-Bluetooth, straight from the browser: [the config page](https://mikavj.github.io/open-adaptive-switch/)
-(source in [docs/](docs/)). No app to install, no account, and settings
-are stored on the switch itself.
+Configuration happens over Bluetooth, from either of two clients:
 
-- On a computer or Android device, open the page in Chrome or Edge.
-- On an iPhone or iPad, open it in the free
-  [Bluefy browser](https://apps.apple.com/app/id1492822055); Safari does
-  not support Web Bluetooth. The page detects this and offers a Bluefy
-  handoff link.
-- A QR code pointing at the page is in [docs/qr](docs/qr), sized to print
-  on the bottom of an enclosure. Scan it with the camera, and on an
-  iPhone an NFC sticker (NTAG213 programmed with the page URL) gives the
-  same result with a tap.
+**The config page**, at
+[mikavj.github.io/open-adaptive-switch](https://mikavj.github.io/open-adaptive-switch/)
+(source in [docs/](docs/)). Open it in Chrome or Edge on a computer or
+Android device and tap Connect. On an iPhone or iPad, install the free
+[Bluefy browser](https://apps.apple.com/app/id1492822055) first, then
+open the page inside it - Safari does not support Web Bluetooth, and a
+link into Bluefy does nothing until the app is installed. A QR code
+pointing at the page is in [docs/qr](docs/qr), sized to print on the
+bottom of an enclosure.
 
-What you can change there:
+**The iOS app**, in [app/](app/). A native SwiftUI app with the same
+controls plus built-in firmware updates. It is not on the App Store yet;
+building it yourself takes Xcode and an Apple developer account (see
+[app/README.md](app/README.md)).
+
+Either client can change:
 
 | Setting | Choices |
 |---|---|
 | Mode | single key; tap or hold (two actions); short, medium, long press (three actions) |
 | Keys | any HID keycode plus modifiers, per action |
 | Sleep timer | minutes of inactivity before deep sleep, 0 to disable |
-| Name | how the switch appears in Bluetooth lists; up to 15 plain characters (accented characters count extra) |
+| Name | how the switch appears in Bluetooth lists; up to 15 plain characters |
 | Status light | red, green, or blue accent |
 
-The page also shows battery percentage, voltage, and charging state live,
-and checks this repository for firmware releases.
+Both show battery percentage, voltage, and charging state live, and check
+this repository for firmware releases. Settings live on the switch
+itself and survive restarts and updates. The switch accepts two
+connections at once, so it can stay paired to the iPad while a parent
+adjusts settings from a phone.
 
-The switch accepts two Bluetooth connections at once, so it can stay
-paired to the iPad while a parent adjusts settings from their phone.
+The chooser in the config page and the app only lists Open Adaptive
+Switch devices (they filter on the switch's service identity), so
+headphones and other Bluetooth devices never appear.
 
 ## Pairing with an iPhone or iPad
 
@@ -88,92 +95,91 @@ Two setups that work well in practice:
 - YouTube / Apple Music play-pause: leave Switch Control off entirely,
   set the switch to send Space, and pair it as a plain Bluetooth
   keyboard. Space toggles playback without bringing up the player
-  controls (a screen tap would).
+  controls.
 
 If you reflash or rename a switch that was already paired, make iOS
 Forget Device first, then pair again.
 
+## Firmware updates
+
+Three ways, most convenient first:
+
+1. **Wireless, from a phone.** The config page or app puts the switch
+   into update mode; Nordic's free
+   [nRF Device Firmware Update](https://apps.apple.com/app/id1624454660)
+   app (or the iOS app in this repo, which has the updater built in)
+   sends it the release .zip. Both walk you through it.
+2. **Any computer, no software.** Download the release .uf2, double-tap
+   the switch's reset button, and a USB drive appears. Drag the file
+   onto it; the switch reboots updated. (The copy dialog may report an
+   error at the end - that's the drive vanishing on reboot, and the
+   update still succeeded.)
+3. **Wired, with the toolchain.** `./flash.sh` - see
+   [SETUP.md](SETUP.md). Needed once per new board, since boards ship
+   without this firmware.
+
+Settings survive all three. Releases carry the .zip and .uf2, built by
+`./make_release.sh`.
+
 ## Battery
 
-Short version: the hardware takes care of itself, and the firmware's job
-is honest reporting.
+The hardware takes care of itself; the firmware's job is honest
+reporting.
 
-Charging is handled entirely by the XIAO's onboard BQ25101 charger IC.
-It charges at 50mA (a gentle 0.2C for the 250mAh cell), regulates to the
-LiPo-standard 4.20V, and terminates on its own; firmware cannot override
-any of that. A cell that measures around 4.15 to 4.20V after charging is
-full and healthy, not overcharged - 4.2V is the normal full-charge
-voltage for a single LiPo cell, and the IC's regulation band is 4.16 to
-4.23V.
+Charging is handled entirely by the XIAO's onboard BQ25101 charger IC:
+50mA (a gentle 0.2C for the 250mAh cell), 4.20V termination, fixed in
+hardware. A cell that measures 4.15 to 4.20V after charging is full and
+healthy - 4.2V is the normal full-charge voltage for a LiPo cell.
 
-What the firmware does:
-
-- Reads the cell through the onboard divider every 30 seconds and maps
-  voltage to percentage with a resting-voltage discharge table (the same
-  approach ZMK and Meshtastic use, tuned for a lightly loaded cell).
-- Reports the percentage over the standard BLE Battery Service, so it
-  appears in the iOS Batteries widget, and in detail (voltage, percent,
-  charging state) on the config page.
-- Reads the charger's status pin, so "charging" and "charged" are facts
-  from the IC, not guesses from voltage. While charging, the percentage
-  is capped at 99 because a charging cell's voltage says nothing reliable
-  about its fill level; when the charger terminates, it reports 100.
-- On battery, the reported percentage never bounces upward; radio bursts
-  dip the voltage briefly and it rebounds, so the firmware ratchets the
-  number downward only.
-- Warns by LED: solid red below 3.55V, blinking red below 3.35V, plus an
-  optional external charge LED (wiring in the firmware settings block).
+The firmware samples the cell through the onboard divider, maps voltage
+to percentage with a resting-voltage discharge table (the approach ZMK
+and Meshtastic use), and reports it over the standard BLE Battery
+Service - so it shows in the iOS Batteries widget - and in detail on the
+config page and app. Charging state comes from the charger IC's status
+pin, not guessed from voltage; while charging, the percentage is capped
+at 99 because a charging cell's voltage says nothing reliable about fill
+level. On battery, the reported number never bounces upward. The LED
+warns too: solid red below 3.55V, blinking red below 3.35V.
 
 There is no firmware low-voltage shutdown. An earlier version had one and
-it false-triggered when Bluetooth transmit bursts briefly sagged the rail
-on a healthy cell. The reporting floor of 3.5V still leaves comfortable
-margin above the roughly 3.0V where LiPo damage starts.
+it false-triggered on Bluetooth transmit sag. The 3.5V reporting floor
+leaves comfortable margin above the roughly 3.0V where LiPo damage
+starts.
 
 One note for anyone with a pre-v3 unit: firmware before v3 addressed the
 battery pins by raw port number, which this Arduino core ignores, so its
-battery readings were always 0V and its LED battery warnings never
-reflected the real cell. v3 uses the board's pin map correctly.
+battery readings were always 0V and its warnings meant nothing. v3 uses
+the board's pin map correctly.
 
-## Firmware updates, no cable needed
+## Longevity
 
-The XIAO's stock bootloader supports Bluetooth over-the-air updates using
-Nordic's DFU protocol. Releases on this repository carry a ready-made
-update package; installing one from an iPhone takes Nordic's free
-[nRF Device Firmware Update](https://apps.apple.com/app/id1624454660)
-app and a couple of minutes. The config page walks through it, checks
-your installed version against the latest release, and puts the switch
-into update mode with one button. Settings survive updates.
+The durable part of this project is the documented Bluetooth protocol
+([docs/ble-protocol.md](docs/ble-protocol.md)) and the standard services
+around it. Every client is replaceable against it: the web page, the iOS
+app, Nordic's DFU tools (built on open-source libraries), and the
+UF2 file copy, which is just a file on a USB drive and cannot rot.
 
-Wired flashing (first install, or recovery) still works the usual way:
-see [SETUP.md](SETUP.md) and `./flash.sh`.
-
-## Building and flashing
-
-Toolchain setup (arduino-cli, the Seeed board package, adafruit-nrfutil)
-is covered in [SETUP.md](SETUP.md), with notes for Linux and macOS. Once
-set up:
-
-```
-./flash.sh
-```
-
-detects the board, compiles `switch-firmware/`, and uploads it.
-`./make_release.sh` builds the OTA package for a GitHub release.
+If Bluefy ever disappears from the App Store, the page still has a path
+to iOS: [WebBLE](https://github.com/daphtdazz/WebBLE) is an Apache-2.0
+open-source browser using the same technique, and a fork of it (or a
+Capacitor wrapper around this same page) restores support. Apple has
+formally declined to add Web Bluetooth to Safari, so plan around that
+rather than waiting for it.
 
 ## Status and roadmap
 
-Working today: the consolidated firmware compiles, pairs, runs from
-battery with sleep and battery reporting, and is configurable from the
-web page.
+Working today: consolidated firmware (v3), the config page (live, with
+release v3.0.0 published), battery reporting, wireless and drag-and-drop
+updates, and the iOS app source.
 
-Open threads, roughly in order:
+Open threads:
 
-- Field-test the v3 firmware against the three v2 units it replaces.
-- Test the config page across Chrome, Android, and Bluefy on iOS.
-- Print and verify the QR sticker flow; try an NTAG213 sticker.
-- Test against switch-adapted apps (e.g. Inclusive Technology), which
-  often expect Space or Enter from a keyboard.
-- Enclosure design, wiring photos, and a proper assembly guide.
+- Field-test v3 on hardware: battery numbers, sleep, all three modes.
+- Test the config page in Bluefy and Android Chrome end to end.
+- Get the iOS app onto TestFlight, then the App Store.
+- Enclosure design, wiring photos, assembly guide, carrier PCB with an
+  onboard button.
+- Test against switch-adapted apps (e.g. Inclusive Technology).
 - Android Switch Access has not been tried; reports welcome.
 
 ## Contributing
@@ -181,10 +187,8 @@ Open threads, roughly in order:
 Issues and pull requests are welcome, and so are reports from anyone who
 builds one. Useful contributions don't have to be code: testing with
 different apps or devices, enclosure designs, clearer assembly docs, or
-accessibility feedback from daily use all help. The BLE protocol between
-firmware and config page is documented in
-[docs/ble-protocol.md](docs/ble-protocol.md). If you're planning a bigger
-change, open an issue first to talk it through.
+accessibility feedback from daily use all help. For bigger changes, open
+an issue first to talk it through.
 
 ## Safety notes
 
@@ -199,6 +203,6 @@ could change settings, so don't use this design where that matters.
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE). Firmware, scripts, and docs are
-all covered; if you improve a unit, sharing the changes back keeps the
-next build cheap for everyone.
+GPL-3.0-or-later. See [LICENSE](LICENSE). Firmware, page, app, scripts,
+and docs are all covered; if you improve a unit, sharing the changes back
+keeps the next build cheap for everyone.
