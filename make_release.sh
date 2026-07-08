@@ -19,6 +19,19 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKETCH="$PROJECT_DIR/switch-firmware"
 FQBN="${FQBN:-Seeeduino:nrf52:xiaonRF52840}"
+
+# The Seeed core's build recipe calls plain "python", which macOS doesn't
+# provide. If it's missing, put a temporary python -> python3 shim on PATH.
+if ! command -v python >/dev/null 2>&1; then
+  if command -v python3 >/dev/null 2>&1; then
+    SHIM_DIR=$(mktemp -d)
+    ln -s "$(command -v python3)" "$SHIM_DIR/python"
+    export PATH="$SHIM_DIR:$PATH"
+  else
+    echo "ERROR: python3 not found; install it first (e.g. brew install python)." >&2
+    exit 1
+  fi
+fi
 BUILD="$SKETCH/build/$(echo "$FQBN" | tr ':' '.')"
 
 VERSION=$(grep -E '^#define\s+FW_VERSION' "$SKETCH/switch-firmware.ino" \

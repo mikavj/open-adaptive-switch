@@ -33,7 +33,7 @@
 		D7508635DAEFBFD4FD69822C /* DeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceView.swift; sourceTree = "<group>"; };
 		D989CCB55A4FAFEF0D80990E /* DFUManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DFUManager.swift; sourceTree = "<group>"; };
 		E65A5FB61CE40BA3333B0698 /* AdaptSwitchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptSwitchApp.swift; sourceTree = "<group>"; };
-		FA66E392A969B8228DB38F7F /* AdaptSwitch.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AdaptSwitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA66E392A969B8228DB38F7F /* AdaptSwitch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AdaptSwitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -197,6 +197,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NA3CQULNCM;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -281,6 +282,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NA3CQULNCM;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
