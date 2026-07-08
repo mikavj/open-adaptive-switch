@@ -1,0 +1,25 @@
+Open Adaptive Switch - Additional permission under GNU GPL version 3, section 7
+
+Open Adaptive Switch is licensed under the GNU General Public License version
+3 or later (see LICENSE). Apple's App Store requires apps to be distributed
+under terms that would otherwise conflict with sections 6 and 10 of the GPL
+(the anti-Tivoization and no-further-restrictions terms). To allow the iOS
+app to be offered on the App Store, and as permitted by section 7 of the GPL,
+the copyright holders grant the following additional permission:
+
+  You may convey this application, in source or object form, through the
+  Apple App Store, Google Play, or a comparable application distribution
+  platform, and you may accept the standard distribution agreement and the
+  technical limitations that such a platform imposes, even where those terms
+  would otherwise conflict with sections 6 and 10 of the GNU General Public
+  License.
+
+This permission does not narrow any other right the GPL grants. The complete
+corresponding source code stays available under the GPL at
+https://github.com/mikavj/open-adaptive-switch, and anyone who obtains that
+source keeps every freedom the GPL provides, including the freedom to build
+and run their own copy.
+
+This additional permission is granted by the project's copyright holders. As
+with any additional permission under GPL section 7, a downstream recipient
+may remove it from their own copies if they choose.

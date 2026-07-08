@@ -179,13 +179,17 @@ Working today: consolidated firmware (v3), the config page and the iOS
 app, live battery reporting (including a level shown in the app's device
 list before connecting), and wireless and drag-and-drop updates.
 
+A 3D-printed case is in the works. The enclosure is being designed and
+tested now, and the print and design files will be published here once
+they hold up in use.
+
 Open threads:
 
 - Field-test v3 on hardware: battery numbers, sleep, all three modes.
 - Test the config page in Bluefy and Android Chrome end to end.
 - Get the iOS app onto TestFlight, then the App Store.
-- Enclosure design, wiring photos, assembly guide, carrier PCB with an
-  onboard button.
+- Finish and publish the 3D-printed case design files.
+- Wiring photos, assembly guide, carrier PCB with an onboard button.
 - Test against switch-adapted apps (e.g. Inclusive Technology).
 - Android Switch Access has not been tried; reports welcome.
 
@@ -213,3 +217,9 @@ could change settings, so don't use this design where that matters.
 GPL-3.0-or-later. See [LICENSE](LICENSE). Firmware, page, app, scripts,
 and docs are all covered; if you improve a unit, sharing the changes back
 keeps the next build cheap for everyone.
+
+So the iOS app can be offered on the Apple App Store, the copyright
+holders grant an additional permission under GPL section 7 for
+distribution through app stores; see
+[APP-STORE-EXCEPTION.txt](APP-STORE-EXCEPTION.txt). The source stays under
+the GPL and anyone can still build their own copy.
