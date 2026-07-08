@@ -1,26 +1,29 @@
 # Setup and flashing
 
 How to set up a machine to build and flash Open Adaptive Switch firmware,
-and how the flash flow works. For what the project is and how to use the
-switches, start with [README.md](README.md).
+and how releases are made. For what the project is and how to use the
+switches, start with [README.md](README.md). Day-to-day configuration
+(key bindings, sleep, name) does not need any of this - that happens on
+the config page over Bluetooth.
 
 ---
 
 ## Hardware per unit
 
-- MCU board: Seeed XIAO nRF52840 **Sense** (variant matters — the Sense
+- MCU board: Seeed XIAO nRF52840 **Sense** (variant matters - the Sense
   has the LSM6DS3 IMU and PDM mic onboard; non-Sense doesn't).
   FQBN: `Seeeduino:nrf52:xiaonRF52840Sense`
   USB VID:PID `2886:8045`
 - Button: tactile momentary, between **D0** and **GND**. Internal
   pull-up enabled in firmware (`INPUT_PULLUP`), so no external resistor.
-- Battery: 3.7V 250mAh LiPo, JST connector. Charged at 50mA
-  (`PIN_CHARGE_SEL` HIGH). Don't lower the charge current threshold; the
-  code assumes cells of 300mAh or less.
+- Battery: 3.7V 250mAh LiPo, JST connector. Charged at 50mA by the
+  onboard BQ25101 (its 4.20V termination is fixed in hardware). The
+  firmware leaves the charge-current pin high-Z for 50mA; a
+  `CHARGE_AT_100MA` define exists for cells of 300mAh or more.
 - Status LED: onboard RGB. Common anode, so `LOW = ON`. All firmware
   uses `ledRedOn()` / `ledRedOff()` helpers so the inversion is hidden.
-- Unit C only (optional): external bi-color charge LED on D9/D10. Wiring
-  is documented in the settings block of `unit-c-firmware.ino`.
+- Optional: external bi-color charge LED on D9/D10. Wiring is documented
+  in the settings block of `switch-firmware.ino`.
 
 ---
 
@@ -72,7 +75,7 @@ mkdir -p ~/.local/bin
 ln -sf ~/.arduino15-tools/nrfutil-venv/bin/adafruit-nrfutil ~/.local/bin/adafruit-nrfutil
 ```
 
-Verify: `adafruit-nrfutil version` → `0.5.3.post16` (or newer).
+Verify: `adafruit-nrfutil version` reports `0.5.3.post16` or newer.
 
 ### macOS
 
@@ -95,109 +98,110 @@ export PATH="$(brew --prefix python)/libexec/bin:$PATH"
 
 ---
 
-## Quick flash (interactive)
+## Firmware layout
 
-For routine updates, use the helper:
+One firmware for all units since v3:
+
+| Folder | Version | Notes |
+|---|---|---|
+| `switch-firmware/` | 3.0.0 | HID switch + BLE config service + battery reporting + OTA DFU |
+
+The old per-unit builds (A = single key on F13, B = Space with hold
+action, C = three press-duration zones) became runtime modes; their
+sources are preserved outside the repo in the maintainer's archive, and
+in git history before v3. Default identity is `AdaptSwitch` sending F13;
+everything user-visible is set over BLE afterward
+([docs/ble-protocol.md](docs/ble-protocol.md)).
+
+---
+
+## Wired flash
+
+For the first flash of a new board, or recovery:
 
 ```
 ./flash.sh
 ```
 
 It detects the connected XIAO, shows the last flash recorded in
-`.flash_state` (a local, git-ignored file the script writes), lists every
-`unit-*-firmware/` folder with its parsed BLE name and `FW_VERSION`,
-prompts for a selection, then compiles and uploads.
+`.flash_state` (a local, git-ignored file the script writes), compiles,
+uploads, and records the result.
 
-Caveat: the firmware doesn't print over USB serial, so the script can't
-query the board for its current firmware. `.flash_state` reflects only
-what this host flashed. For ground truth, pair via BLE and check the
-advertised name.
+Manual steps, if you prefer them (run from the project root; substitute
+your port):
 
-## Per-board first-flash workflow (manual)
+```
+arduino-cli board list
+arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense switch-firmware
+arduino-cli upload -p /dev/ttyACM1 \
+  --fqbn Seeeduino:nrf52:xiaonRF52840Sense switch-firmware
+```
 
-1. Plug the XIAO in via USB-C and verify it shows up:
-   ```
-   arduino-cli board list
-   ```
-   You should see `Seeed XIAO nRF52840 Sense` on a serial port
-   (`/dev/ttyACM1` on Linux, `/dev/cu.usbmodem*` on macOS). A sibling
-   `Unknown` port may appear too — that's the bootloader CDC, ignore it.
-
-2. Compile any unit folder (run from the project root):
-   ```
-   arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense unit-a-firmware
-   ```
-   Expect ~120 KB used (14% flash).
-
-3. Upload (substitute your port):
-   ```
-   arduino-cli upload -p /dev/ttyACM1 \
-     --fqbn Seeeduino:nrf52:xiaonRF52840Sense unit-a-firmware
-   ```
-   On Arch, wrap with `sg uucp -c "..."` if you haven't re-logged in
-   since being added to the `uucp` group.
-
-4. If the board doesn't enter DFU automatically: double-tap the reset
-   button (tiny button next to USB-C). The bootloader CDC port appears,
-   `adafruit-nrfutil` finds it, re-flashes. Then single-press reset to
-   boot into the new sketch.
-
-5. Confirming the running sketch: brief accent-color LED flash at boot,
-   then a slow pulse in the accent color means BLE advertising, not yet
-   paired. (Unit C instead plays a red → amber → green boot sequence to
-   teach its three press-duration zones.)
+If the board doesn't enter DFU automatically, double-tap the reset button
+(tiny button next to USB-C) and retry the upload. After flashing, a brief
+accent flash then 1 to 3 blinks (battery level) confirms the sketch is
+running; a slow accent pulse means it is advertising.
 
 ---
 
-## Firmware inventory
+## Over-the-air updates and releases
 
-Folder name = unit identity; version lives in code (`FW_VERSION` inside
-each `.ino`, also broadcast over the BLE Device Information Service).
-
-| Folder | BLE name | HID key(s) | LED accent | Version | Notes |
-|---|---|---|---|---|---|
-| `unit-a-firmware/` | AdaptSwitch-A | F13 | red | 2.0.1 | canonical "tap" switch; template for derived units; still has UVLO |
-| `unit-b-firmware/` | AdaptSwitch-B | SPACE (tap), F14 (hold) | blue | 2.3.1 | media remote — YouTube/Music play-pause without overlay |
-| `unit-c-firmware/` | AdaptSwitch-C | F15 / F16 / F17 (by press duration) | varies (R/A/G live zone feedback) | 2.4.1 | multi-mode timing button — one switch, three actions; optional external charge LED |
-
-All three are being tested side by side; see "Known issues" below for
-how their chassis versions differ and why.
-
-### Generating more units
+The stock bootloader supports Nordic legacy BLE DFU, so units in the
+field update from a phone; nobody needs this toolchain except to produce
+the release package.
 
 ```
-./make_unit.sh <letter> <HID_KEY_macro> [RED|GREEN|BLUE]
+./make_release.sh
 ```
 
-Example:
+builds `switch-firmware`, and copies the OTA package the build already
+produces (the core runs `adafruit-nrfutil dfu genpkg --dev-type 0x0052
+--sd-req 0x0123` on every compile) into
+`release/open-adaptive-switch-vX.Y.Z-ota.zip`.
 
-```
-./make_unit.sh d HID_KEY_F14 GREEN
-```
+Publishing an update:
 
-It copies unit-a, renames the identity lines, and compiles to verify. It
-won't overwrite an existing folder.
+1. Bump `FW_VERSION` in the sketch, commit, push.
+2. Run `./make_release.sh`.
+3. Create a GitHub release with tag `vX.Y.Z` (matching FW_VERSION) and
+   attach the .zip. The config page reads the latest release through the
+   GitHub API, compares against the version the switch reports, and links
+   the download.
 
-Suggested key map for future units, chosen so every unit can pair to the
-same iOS device without colliding (iOS treats each distinct key as a
-distinct switch input):
+Installing an update from a phone is described on the config page and in
+[docs/ble-protocol.md](docs/ble-protocol.md). In short: put the switch in
+update mode from the page (or let the DFU app trigger it), then send the
+.zip with Nordic's nRF Device Firmware Update app. On iOS, keep the
+packets-per-notification setting at 8 or below and enable scanning for
+legacy DFU devices.
 
-| Unit | D | E | F | G | H | I | J |
-|---|---|---|---|---|---|---|---|
-| Key | F14* | F18 | F19 | F20 | F21 | F22 | F23 |
+Settings survive updates: they live in a LittleFS filesystem in internal
+flash, outside the application area.
 
-*F14 is also Unit B's long-press key — skip it if Unit B is in use.
-F24 stays in reserve. Beyond ten units you'd need keypad keys
-(`HID_KEY_KEYPAD_0..9`) or other non-F-key codes.
+---
+
+## The config page
+
+`docs/index.html` is a static page; GitHub Pages serves it from the
+`docs/` folder of the main branch at
+https://mikavj.github.io/open-adaptive-switch/. It needs no build step -
+edit, commit, push. Web Bluetooth requires HTTPS, which Pages provides.
+
+To work on it locally: `python3 -m http.server` in `docs/` and open
+`http://localhost:8000` in Chrome (localhost counts as a secure context).
+The BLE protocol it speaks is in [docs/ble-protocol.md](docs/ble-protocol.md).
+
+QR codes pointing at the page (for printing on enclosures) are in
+`docs/qr/`; regenerate them if the page URL ever changes.
 
 ---
 
 ## iOS pairing
 
 See [README.md](README.md) for the pairing walkthrough and per-app
-recipes. Short version: always pair via Settings → Accessibility →
-Switch Control → Switches → Add New Switch → External, not the main
-Bluetooth menu.
+recipes. Short version: always pair via Settings, Accessibility, Switch
+Control, Switches, Add New Switch, External - not the main Bluetooth
+menu.
 
 If a board was previously paired under the same BLE name, Forget Device
 on iOS before re-pairing. Reflashing resets the BLE bond, and iOS will
@@ -207,19 +211,27 @@ silently fail to reconnect to a bond it remembers.
 
 ## Known issues / open threads
 
-- Which chassis wins: Unit A still runs the v2.0 chassis with UVLO
-  (emergency shutdown below 3.10V). Units B and C dropped UVLO after
-  false shutdowns — BLE TX bursts can briefly sag the rail below the
-  threshold on a healthy cell — and indicate low battery by LED only.
-  All three are in side-by-side testing; once a winner emerges the
-  others should be ported to that chassis.
-- Multi-position selector switch: the code template is present but
-  commented out in all units; the hardware switch hasn't been wired yet.
-- Apple Shortcuts launcher menu: a design direction (Unit C drives a
-  "Run Shortcut" recipe with a Choose-from-Menu picker), not built yet.
+- The v3 consolidated firmware needs field testing against the v2 units
+  it replaced (the LED-only battery warning approach came from units B
+  and C; v2.0's low-voltage shutdown false-triggered on BLE TX sag and
+  was dropped).
+- Pre-v3 firmware addressed the battery pins by raw nRF port number
+  (46/31/13), which this core's pin map does not accept: the divider
+  enable write was a no-op and analogRead landed on the NFC pin, so
+  every battery reading was 0V. Anything battery-related observed on
+  v1/v2 units (readout blink counts, low-battery warnings, v2.0's
+  shutdown behavior) was based on that phantom 0V and should be
+  disregarded. v3 uses the variant's named pins (VBAT_ENABLE, PIN_VBAT,
+  PIN_CHARGING_CURRENT).
+- Config page tested paths: still to verify on Bluefy (iOS) and Android
+  Chrome; protocol testing has been desktop Chrome so far.
+- Multi-position selector switch: the v2 firmware carried a placeholder
+  for a hardware mode selector; v3 dropped it since modes are now set
+  over BLE. If a use case surfaces for a hardware selector, it can come
+  back as a config option.
 - Inclusive Technology compatibility: unknown until there's a paid app
-  to test against. Their apps often expect Space/Enter from a
-  switch-interface keyboard rather than iOS Switch Control. Unit B's
-  firmware is the starting point, but an Enter variant may be needed.
-- v1.0 firmware history: the original v1.0 sketches predate this repo
-  and are kept in the maintainer's offline archive, not in git.
+  to test against. Their apps often expect Space or Enter from a
+  switch-interface keyboard; both are now a config-page change instead
+  of a reflash.
+- v1/v2 firmware history: preserved in git history and in the
+  maintainer's offline archive, not in the working tree.

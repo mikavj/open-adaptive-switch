@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Adaptive Switch configuration</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #555;
+    --line: #d0d0d0; --accent: #0a5cad; --accent-fg: #ffffff;
+    --ok: #1a7a2e; --warn: #a33; --card: #f6f6f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181a; --fg: #e8e8e8; --muted: #a5a5a5;
+      --line: #3a3d40; --accent: #4d9fe8; --accent-fg: #0d1117;
+      --ok: #57c073; --warn: #e07070; --card: #22252a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; padding: 1rem; max-width: 44rem;
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px; line-height: 1.45;
+  }
+  h1 { font-size: 1.5rem; margin: 0.5rem 0 0.25rem; }
+  h2 { font-size: 1.15rem; margin: 0 0 0.75rem; }
+  p  { margin: 0.5rem 0; }
+  .sub { color: var(--muted); margin-bottom: 1rem; }
+  section {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; margin: 1rem 0;
+  }
+  button {
+    font: inherit; padding: 0.6rem 1.1rem; border-radius: 8px;
+    border: 1px solid var(--accent); background: var(--accent);
+    color: var(--accent-fg); cursor: pointer; min-height: 44px;
+  }
+  button.secondary { background: transparent; color: var(--accent); }
+  button.danger { background: transparent; color: var(--warn); border-color: var(--warn); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  input[type=text], input[type=number], select {
+    font: inherit; padding: 0.5rem; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+    min-height: 44px;
+  }
+  label { display: block; margin: 0.6rem 0 0.2rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+  .mods label { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0 0.6rem 0 0; }
+  .mods input { width: 1.4rem; height: 1.4rem; }
+  .slot { border-top: 1px solid var(--line); padding-top: 0.6rem; margin-top: 0.6rem; }
+  .slot:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  #status { font-weight: 600; }
+  .ok   { color: var(--ok); }
+  .warn { color: var(--warn); }
+  .gauge { display: flex; align-items: center; gap: 0.8rem; }
+  .gauge svg { flex: none; }
+  .hidden { display: none; }
+  footer { color: var(--muted); font-size: 0.85rem; margin: 2rem 0 1rem; }
+  a { color: var(--accent); }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 0 0.25rem; }
+</style>
+</head>
+<body>
+
+<h1>Open Adaptive Switch</h1>
+<p class="sub">Set up your switch from this page: key binding, press modes,
+sleep timer, name, and firmware updates. Nothing to install on the switch
+side, and your settings stay on the switch itself.</p>
+
+<section id="unsupported" class="hidden">
+  <h2>This browser can't talk to Bluetooth devices</h2>
+  <p id="unsupported-ios" class="hidden">
+    On an iPhone or iPad, open this page in the free
+    <a href="https://apps.apple.com/app/id1492822055">Bluefy browser</a>,
+    which adds the Bluetooth support Safari is missing.
+  </p>
+  <p><a id="bluefy-link" href="#" class="hidden"><strong>Open this page in Bluefy</strong></a></p>
+  <p id="unsupported-other" class="hidden">
+    On a computer or Android device, use Chrome or Edge. Firefox and Safari
+    do not support Web Bluetooth.
+  </p>
+</section>
+
+<section id="connect-section">
+  <h2>Connect</h2>
+  <p>Wake the switch (press its button once), then connect. The switch can
+  stay paired to the iPad while you configure it.</p>
+  <div class="row">
+    <button id="btn-connect">Connect to switch</button>
+    <button id="btn-disconnect" class="secondary hidden">Disconnect</button>
+  </div>
+  <p id="status">Not connected.</p>
+</section>
+
+<div id="panels" class="hidden">
+
+<section>
+  <h2>Battery</h2>
+  <div class="gauge">
+    <svg width="64" height="30" viewBox="0 0 64 30" aria-hidden="true">
+      <rect x="1" y="3" width="56" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+      <rect x="58" y="10" width="5" height="10" rx="2" fill="currentColor"/>
+      <rect id="gauge-fill" x="4" y="6" width="0" height="18" rx="2" fill="currentColor"/>
+    </svg>
+    <div>
+      <div><strong id="batt-pct">--</strong></div>
+      <div id="batt-detail" class="sub"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Button behavior</h2>
+  <label for="mode">Mode</label>
+  <select id="mode">
+    <option value="0">Single key: every press sends one key</option>
+    <option value="1">Tap or hold: two actions from one button</option>
+    <option value="2">Short, medium, long press: three actions</option>
+  </select>
+
+  <div id="slot0" class="slot">
+    <label id="slot0-label" for="key0">Key</label>
+    <div class="row">
+      <select id="key0"></select>
+      <input type="number" id="code0" min="0" max="255" class="hidden" placeholder="HID code" aria-label="Custom HID code">
+    </div>
+    <div class="mods" id="mods0"></div>
+  </div>
+  <div id="slot1" class="slot hidden">
+    <label id="slot1-label" for="key1">Hold key</label>
+    <div class="row">
+      <select id="key1"></select>
+      <input type="number" id="code1" min="0" max="255" class="hidden" placeholder="HID code" aria-label="Custom HID code">
+    </div>
+    <div class="mods" id="mods1"></div>
+  </div>
+  <div id="slot2" class="slot hidden">
+    <label id="slot2-label" for="key2">Long press key</label>
+    <div class="row">
+      <select id="key2"></select>
+      <input type="number" id="code2" min="0" max="255" class="hidden" placeholder="HID code" aria-label="Custom HID code">
+    </div>
+    <div class="mods" id="mods2"></div>
+  </div>
+
+  <p><button id="btn-save-keys">Save button settings</button></p>
+  <p class="sub">Tap or hold: holds of half a second or longer send the hold
+  key. Three-action mode adds a boundary at two seconds, and the switch LED
+  shows red, amber, then green while you hold so you can see which action
+  you are about to release into.</p>
+</section>
+
+<section>
+  <h2>Sleep timer</h2>
+  <label for="sleep">Minutes without a press before the switch sleeps
+  (0 means never sleep)</label>
+  <div class="row">
+    <input type="number" id="sleep" min="0" max="1440" step="5">
+    <button id="btn-save-sleep">Save</button>
+  </div>
+  <p class="sub">A sleeping switch wakes on the next press. It never sleeps
+  while plugged in over USB.</p>
+</section>
+
+<section>
+  <h2>Name and light</h2>
+  <label for="name">Switch name (up to 15 plain characters; accents and
+  symbols count extra and may shorten the limit)</label>
+  <div class="row">
+    <input type="text" id="name" maxlength="15" autocomplete="off">
+    <button id="btn-save-name">Save name</button>
+  </div>
+  <p class="sub">The new name is used after the switch restarts. If the
+  switch was already paired, remove it in the iPad's Switch Control
+  settings and pair again so iOS picks up the new name.</p>
+  <label for="accent">Status light color</label>
+  <div class="row">
+    <select id="accent">
+      <option value="0">Red</option>
+      <option value="1">Green</option>
+      <option value="2">Blue</option>
+    </select>
+    <button id="btn-save-accent">Save color</button>
+  </div>
+</section>
+
+<section>
+  <h2>Firmware</h2>
+  <p>Installed version: <strong id="fw-current">unknown</strong><br>
+  Latest release: <strong id="fw-latest">checking...</strong></p>
+  <p id="fw-verdict"></p>
+  <p><a id="fw-download" class="hidden" href="#">Download the update package (.zip)</a></p>
+  <p><button id="btn-dfu" class="secondary">Put switch into update mode</button></p>
+  <details>
+    <summary>How to install an update from an iPhone or iPad</summary>
+    <ol>
+      <li>Download the release .zip above and keep it in the Files app.</li>
+      <li>Install Nordic's free <a href="https://apps.apple.com/app/id1624454660">nRF Device Firmware Update</a> app.</li>
+      <li>Tap "Put switch into update mode". The switch restarts into its
+      bootloader, drops this connection, and advertises under a different
+      Bluetooth address.</li>
+      <li>In the DFU app, pick the .zip, then scan and select the DFU
+      device. If nothing appears, enable the app's option to scan for
+      legacy DFU devices, and keep the packets-per-notification setting at
+      8 or below.</li>
+      <li>Start the update. The switch reboots into the new firmware when
+      it finishes. Your settings are kept.</li>
+    </ol>
+  </details>
+</section>
+
+<section>
+  <h2>Maintenance</h2>
+  <div class="row">
+    <button id="btn-reboot" class="secondary">Restart switch</button>
+    <button id="btn-factory" class="danger">Reset to factory settings</button>
+  </div>
+  <p class="sub">Factory reset restores the default key (F13), mode, name,
+  and sleep timer, then restarts. Bluetooth pairings on the iPad are not
+  removed by this; forget the device there too for a fully clean start.</p>
+</section>
+
+</div>
+
+<footer>
+  <p>Open Adaptive Switch is open-source hardware and firmware:
+  <a href="https://github.com/mikavj/open-adaptive-switch">github.com/mikavj/open-adaptive-switch</a>.
+  This page talks to the switch over Bluetooth directly from the browser;
+  no data leaves your device except a version check against GitHub.</p>
+</footer>
+
+<script>
+"use strict";
+
+const REPO = "mikavj/open-adaptive-switch";
+const SVC_CONFIG   = "f6ba8e00-4094-4e31-b42a-5aaef6fc5c7d";
+const CHR = {
+  mode:    "f6ba8e01-4094-4e31-b42a-5aaef6fc5c7d",
+  keymap:  "f6ba8e02-4094-4e31-b42a-5aaef6fc5c7d",
+  sleep:   "f6ba8e03-4094-4e31-b42a-5aaef6fc5c7d",
+  name:    "f6ba8e04-4094-4e31-b42a-5aaef6fc5c7d",
+  battery: "f6ba8e05-4094-4e31-b42a-5aaef6fc5c7d",
+  command: "f6ba8e06-4094-4e31-b42a-5aaef6fc5c7d",
+  accent:  "f6ba8e07-4094-4e31-b42a-5aaef6fc5c7d",
+};
+const CMD = { reboot: 1, factory: 2, dfu: 3 };
+
+// HID keyboard usage codes (USB HID usage table, keyboard page).
+const KEYS = [
+  ["F13", 0x68], ["F14", 0x69], ["F15", 0x6A], ["F16", 0x6B],
+  ["F17", 0x6C], ["F18", 0x6D], ["F19", 0x6E], ["F20", 0x6F],
+  ["F21", 0x70], ["F22", 0x71], ["F23", 0x72], ["F24", 0x73],
+  ["Space", 0x2C], ["Enter", 0x28], ["Tab", 0x2B], ["Escape", 0x29],
+  ["Backspace", 0x2A],
+  ["Arrow up", 0x52], ["Arrow down", 0x51],
+  ["Arrow left", 0x50], ["Arrow right", 0x4F],
+];
+const MODS = [["Ctrl", 1], ["Shift", 2], ["Alt", 4], ["Cmd", 8]];
+
+let device = null, server = null, chars = {};
+
+const $ = (id) => document.getElementById(id);
+function setStatus(text, cls) {
+  const el = $("status");
+  el.textContent = text;
+  el.className = cls || "";
+}
+
+// ---- capability check ----
+(function () {
+  if (navigator.bluetooth) return;
+  $("unsupported").classList.remove("hidden");
+  $("connect-section").classList.add("hidden");
+  const isApple = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (isApple) {
+    $("unsupported-ios").classList.remove("hidden");
+    const link = $("bluefy-link");
+    link.href = "bluefy://open?url=" + encodeURIComponent(location.href);
+    link.classList.remove("hidden");
+  } else {
+    $("unsupported-other").classList.remove("hidden");
+  }
+})();
+
+// ---- key pickers ----
+function buildSlot(n) {
+  const sel = $("key" + n);
+  for (const [label, code] of KEYS) {
+    const o = document.createElement("option");
+    o.value = code; o.textContent = label;
+    sel.appendChild(o);
+  }
+  const custom = document.createElement("option");
+  custom.value = "custom"; custom.textContent = "Custom HID code...";
+  sel.appendChild(custom);
+  sel.addEventListener("change", () => {
+    $("code" + n).classList.toggle("hidden", sel.value !== "custom");
+  });
+  const mods = $("mods" + n);
+  for (const [label, bit] of MODS) {
+    const wrap = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox"; box.dataset.bit = bit;
+    wrap.appendChild(box); wrap.appendChild(document.createTextNode(label));
+    mods.appendChild(wrap);
+  }
+}
+[0, 1, 2].forEach(buildSlot);
+
+function slotVisibility() {
+  const mode = Number($("mode").value);
+  $("slot1").classList.toggle("hidden", mode === 0);
+  $("slot2").classList.toggle("hidden", mode !== 2);
+  $("slot0-label").textContent = mode === 0 ? "Key" : mode === 1 ? "Tap key" : "Short press key";
+  $("slot1-label").textContent = mode === 1 ? "Hold key" : "Medium press key";
+}
+$("mode").addEventListener("change", slotVisibility);
+
+// Returns [modifier, keycode], or null if the custom code is invalid.
+function readSlotUI(n) {
+  const sel = $("key" + n);
+  let code;
+  if (sel.value === "custom") {
+    code = Number($("code" + n).value);
+    if (!Number.isInteger(code) || code < 0 || code > 255) return null;
+  } else {
+    code = Number(sel.value);
+  }
+  let mod = 0;
+  $("mods" + n).querySelectorAll("input").forEach(b => { if (b.checked) mod |= Number(b.dataset.bit); });
+  return [mod, code];
+}
+function writeSlotUI(n, mod, code) {
+  const sel = $("key" + n);
+  const known = KEYS.some(([, c]) => c === code);
+  if (known) {
+    sel.value = code;
+    $("code" + n).classList.add("hidden");
+  } else {
+    sel.value = "custom";
+    $("code" + n).value = code;
+    $("code" + n).classList.remove("hidden");
+  }
+  $("mods" + n).querySelectorAll("input").forEach(b => { b.checked = !!(mod & Number(b.dataset.bit)); });
+}
+
+// ---- connection ----
+let expectedDisconnect = false;
+
+function onBatteryNotify(ev) { renderBattery(ev.target.value); }
+
+async function connect() {
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SVC_CONFIG] }, { namePrefix: "AdaptSwitch" }],
+      optionalServices: [SVC_CONFIG, "device_information", "battery_service"],
+    });
+  } catch (e) {
+    // NotFoundError means the person closed the chooser; anything else
+    // is a real problem worth explaining.
+    if (e.name !== "NotFoundError") {
+      setStatus("Bluetooth isn't available: " + e.message, "warn");
+    }
+    return;
+  }
+  setStatus("Connecting...", "");
+  expectedDisconnect = false;
+  device.removeEventListener("gattserverdisconnected", onDisconnected);
+  device.addEventListener("gattserverdisconnected", onDisconnected);
+  try {
+    server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(SVC_CONFIG);
+    for (const [k, uuid] of Object.entries(CHR)) {
+      chars[k] = await svc.getCharacteristic(uuid);
+    }
+    await loadAll();
+    chars.battery.removeEventListener("characteristicvaluechanged", onBatteryNotify);
+    chars.battery.addEventListener("characteristicvaluechanged", onBatteryNotify);
+    await chars.battery.startNotifications();
+    $("panels").classList.remove("hidden");
+    $("btn-disconnect").classList.remove("hidden");
+    setStatus("Connected to " + (device.name || "switch") + ".", "ok");
+    readFirmwareVersion();
+  } catch (e) {
+    setStatus("Connection failed: " + e.message
+      + " Press the switch button to wake it, then try again.", "warn");
+    try { device.gatt.disconnect(); } catch (_) {}
+  }
+}
+
+function onDisconnected() {
+  $("panels").classList.add("hidden");
+  $("btn-disconnect").classList.add("hidden");
+  // Keep the more useful message when the disconnect was requested
+  // (restart, factory reset, update mode): those handlers already
+  // explained what happens next.
+  if (!expectedDisconnect) setStatus("Disconnected.", "warn");
+  expectedDisconnect = false;
+  chars = {}; server = null;
+}
+
+async function loadAll() {
+  const mode = (await chars.mode.readValue()).getUint8(0);
+  $("mode").value = mode;
+  slotVisibility();
+
+  const km = await chars.keymap.readValue();
+  for (let n = 0; n < 3; n++) writeSlotUI(n, km.getUint8(n * 2), km.getUint8(n * 2 + 1));
+
+  $("sleep").value = (await chars.sleep.readValue()).getUint16(0, true);
+
+  const nameBuf = await chars.name.readValue();
+  $("name").value = new TextDecoder().decode(nameBuf);
+
+  $("accent").value = (await chars.accent.readValue()).getUint8(0);
+
+  renderBattery(await chars.battery.readValue());
+}
+
+function renderBattery(dv) {
+  if (!dv || dv.byteLength < 4) return;
+  const mv = dv.getUint16(0, true);
+  const pct = dv.getUint8(2);
+  const state = dv.getUint8(3);
+  const stateText = state === 1 ? "charging"
+                  : state === 2 ? "charged, on USB power"
+                  : "on battery";
+  $("batt-pct").textContent = pct + "%";
+  $("batt-detail").textContent = (mv / 1000).toFixed(2) + " V, " + stateText;
+  $("gauge-fill").setAttribute("width", Math.round(50 * pct / 100));
+}
+
+async function readFirmwareVersion() {
+  try {
+    const dis = await server.getPrimaryService("device_information");
+    const fw = await dis.getCharacteristic("firmware_revision_string");
+    const v = new TextDecoder().decode(await fw.readValue());
+    $("fw-current").textContent = v;
+    checkLatestRelease(v);
+  } catch (e) {
+    $("fw-current").textContent = "unknown";
+    checkLatestRelease(null);
+  }
+}
+
+// Numeric dotted-version comparison; positive when a > b.
+function cmpVersion(a, b) {
+  const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+async function checkLatestRelease(installed) {
+  let r;
+  try {
+    r = await fetch("https://api.github.com/repos/" + REPO + "/releases/latest");
+  } catch (e) {
+    $("fw-latest").textContent = "couldn't check (no internet connection?)";
+    return;
+  }
+  if (r.status === 404) {
+    $("fw-latest").textContent = "none published yet";
+    return;
+  }
+  if (!r.ok) {
+    $("fw-latest").textContent = "couldn't check right now (GitHub said " + r.status + ")";
+    return;
+  }
+  const rel = await r.json();
+  const latest = (rel.tag_name || "").replace(/^[vV]/, "");
+  $("fw-latest").textContent = latest || "unknown";
+  const zip = (rel.assets || []).find(a => a.name.endsWith(".zip"));
+  if (zip) {
+    const dl = $("fw-download");
+    dl.href = zip.browser_download_url;
+    dl.textContent = "Download " + zip.name;
+    dl.classList.remove("hidden");
+  }
+  if (installed && latest) {
+    const d = cmpVersion(installed, latest);
+    $("fw-verdict").textContent =
+      d === 0 ? "The switch is up to date."
+      : d < 0 ? "An update is available."
+      : "The switch runs a newer build than the latest release.";
+  }
+}
+
+// ---- writes ----
+async function writeBytes(chr, bytes) {
+  await chars[chr].writeValue(new Uint8Array(bytes));
+}
+
+// Run a save action with the button disabled while it is in flight, a
+// brief confirmation on success, and an honest message on failure.
+// Serializing on the button also prevents overlapping GATT operations
+// from a double tap.
+function guarded(btnId, okText, action) {
+  const btn = $(btnId);
+  btn.addEventListener("click", async () => {
+    if (btn.disabled) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    try {
+      const done = await action();
+      if (done === false) { btn.disabled = false; return; }
+      btn.textContent = okText;
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+    } catch (e) {
+      btn.disabled = false;
+      setStatus("That didn't reach the switch (" + e.message
+        + "). Check it's awake and nearby, then try again.", "warn");
+    }
+  });
+}
+
+// Encode a name to at most 15 UTF-8 bytes without splitting a character
+// (the switch stores bytes, not characters).
+function encodeName(s) {
+  let bytes = new TextEncoder().encode(s);
+  if (bytes.length <= 15) return bytes;
+  let cut = 15;
+  while (cut > 0 && (bytes[cut] & 0xC0) === 0x80) cut--;
+  return bytes.slice(0, cut);
+}
+
+$("btn-connect").addEventListener("click", connect);
+$("btn-disconnect").addEventListener("click", () => {
+  expectedDisconnect = true;
+  setStatus("Disconnected.", "");
+  if (device) device.gatt.disconnect();
+});
+
+guarded("btn-save-keys", "Saved", async () => {
+  const km = [];
+  for (let n = 0; n < 3; n++) {
+    const slot = readSlotUI(n);
+    if (!slot) {
+      setStatus("The custom HID code must be a whole number from 0 to 255.", "warn");
+      return false;
+    }
+    km.push(...slot);
+  }
+  await writeBytes("mode", [Number($("mode").value)]);
+  await writeBytes("keymap", km);
+});
+
+guarded("btn-save-sleep", "Saved", async () => {
+  const m = Math.max(0, Math.min(1440, Number($("sleep").value) || 0));
+  await writeBytes("sleep", [m & 0xFF, m >> 8]);
+});
+
+guarded("btn-save-name", "Saved", async () => {
+  const raw = $("name").value.trim();
+  if (!raw) return false;
+  const bytes = encodeName(raw);
+  await chars.name.writeValue(bytes);
+  const stored = new TextDecoder().decode(bytes);
+  setStatus(stored === raw
+    ? "Name saved. Restart the switch (Maintenance) to start using it."
+    : "Name was shortened to \"" + stored + "\" to fit. Restart the switch to apply.", "ok");
+});
+
+guarded("btn-save-accent", "Saved", async () => {
+  await writeBytes("accent", [Number($("accent").value)]);
+});
+
+guarded("btn-reboot", "Restarting", async () => {
+  expectedDisconnect = true;
+  await writeBytes("command", [CMD.reboot]);
+  setStatus("Restarting. Reconnect in a few seconds.", "");
+});
+
+guarded("btn-factory", "Resetting", async () => {
+  if (!confirm("Reset the switch to factory settings?")) return false;
+  expectedDisconnect = true;
+  await writeBytes("command", [CMD.factory]);
+  setStatus("Factory reset sent. The switch is restarting.", "");
+});
+
+guarded("btn-dfu", "Update mode", async () => {
+  if (!confirm("Put the switch into firmware update mode?\n\n"
+    + "Only do this with an update package ready. To back out without "
+    + "installing anything, press the small reset button on the switch.")) return false;
+  expectedDisconnect = true;
+  await writeBytes("command", [CMD.dfu]);
+  setStatus("Update mode. This connection will drop; continue in the DFU app. "
+    + "To cancel, press the switch's reset button.", "");
+});
+</script>
+</body>
+</html>

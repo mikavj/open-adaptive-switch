@@ -5,8 +5,8 @@
 # Copyright (C) 2026 Open Adaptive Switch contributors
 #
 # Detects a connected XIAO nRF52840 Sense, shows the last flash recorded
-# on this host, lets you pick a unit-*-firmware folder, compiles + uploads,
-# then records what was flashed.
+# on this host, lets you pick a firmware folder, compiles + uploads, then
+# records what was flashed.
 
 set -uo pipefail
 
@@ -56,21 +56,21 @@ if [ -f "$STATE_FILE" ]; then
   sed 's/^/  /' "$STATE_FILE"
 else
   echo "No prior flash recorded on this host (no $STATE_FILE)."
-  echo "(The board itself may have firmware from a previous flash — the"
+  echo "(The board itself may have firmware from a previous flash - the"
   echo " firmware doesn't report itself over USB serial. Pair via BLE to"
   echo " confirm its advertised name if you need ground truth.)"
 fi
 echo
 
-# --- 4. List available unit folders, parse identity from each .ino ---
+# --- 4. List available firmware folders, parse identity from each .ino ---
 # (plain while-read loop instead of mapfile: macOS ships bash 3.2)
 UNITS=()
 while IFS= read -r dir; do
   UNITS+=("$dir")
-done < <(ls -d "$PROJECT_DIR"/unit-*-firmware 2>/dev/null | sort)
+done < <(ls -d "$PROJECT_DIR"/*-firmware 2>/dev/null | sort)
 
 if [ ${#UNITS[@]} -eq 0 ]; then
-  echo "ERROR: no unit-*-firmware folders found in $PROJECT_DIR"
+  echo "ERROR: no *-firmware folders found in $PROJECT_DIR"
   exit 1
 fi
 
@@ -88,7 +88,7 @@ for i in "${!UNITS[@]}"; do
   folder=$(basename "${UNITS[$i]}")
   ino="${UNITS[$i]}/$folder.ino"
   if [ -f "$ino" ]; then
-    name=$(extract "$ino" '^\s*const char\*\s+DEVICE_NAME')
+    name=$(extract "$ino" '^\s*const char\*\s+DEFAULT_DEVICE_NAME')
     ver=$(extract  "$ino" '^\s*#define\s+FW_VERSION')
   else
     name="(no .ino)"
@@ -113,7 +113,7 @@ fi
 SELECTED="${UNITS[$idx]}"
 SEL_NAME=$(basename "$SELECTED")
 SEL_INO="$SELECTED/$SEL_NAME.ino"
-SEL_DEVICE=$(extract "$SEL_INO" '^\s*const char\*\s+DEVICE_NAME')
+SEL_DEVICE=$(extract "$SEL_INO" '^\s*const char\*\s+DEFAULT_DEVICE_NAME')
 SEL_VER=$(extract    "$SEL_INO" '^\s*#define\s+FW_VERSION')
 
 echo
@@ -154,7 +154,7 @@ echo
 echo "============================================================"
 echo " DONE."
 echo "   Folder:  $SEL_NAME"
-echo "   BLE:     $SEL_DEVICE"
+echo "   BLE:     $SEL_DEVICE (default; a saved rename overrides this)"
 echo "   Version: $SEL_VER"
 echo "   Port:    $PORT"
 echo "   State:   $STATE_FILE"
