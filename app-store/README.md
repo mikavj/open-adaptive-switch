@@ -12,9 +12,10 @@ Everything needed to fill in the App Store Connect listing.
 
 ## Screenshots
 
-Upload these to the matching size slots in App Store Connect.
+Upload these to the matching size slots in App Store Connect. Both sizes
+are on Apple's current accepted list.
 
-- `screenshots-6.9/` - iPhone 6.9" (1290x2796), portrait. Real captures
+- `screenshots-iphone/` - iPhone 6.5" (1284x2778), portrait. Real captures
   from the app on iPhone, showing the actual screens.
 - `screenshots-ipad/` - iPad 13" (2752x2064), landscape. Marketing images
   built around the same real captures. The iPad simulator has no
