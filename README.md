@@ -3,7 +3,7 @@
 DIY wireless switches for iOS Switch Control, built around the Seeed XIAO
 nRF52840. Each unit is a single button in a box: press it and it sends a
 keystroke over Bluetooth LE, which an iPhone or iPad treats as an
-accessibility switch input. The parts cost roughly $12 per unit;
+accessibility switch input. The parts cost roughly $15 per unit;
 comparable commercial Bluetooth switches sell for around $200.
 
 The project started as a way to give a child with a motor disability an
@@ -22,7 +22,7 @@ enclosure designs, photos, and wiring diagrams are still to come.
 | Seeed XIAO nRF52840 | the plain variant, about $10; the Sense variant works identically |
 | Tactile momentary button | wired between D0 and GND, no resistor needed |
 | 3.7V 250mAh LiPo | JST connector, charged at 50mA over USB-C |
-| Enclosure | any box that fits; 3D-printable design planned |
+| Enclosure | can fit inside an existing adaptive switch, or check back for the 3D printed design in development |
 
 Why this board: a BLE switch has to hold its connection all day on a
 small battery. The nRF52840 does that at roughly 0.1mA, which means
@@ -78,8 +78,6 @@ headphones and other Bluetooth devices never appear.
 
 ## Pairing with an iPhone or iPad
 
-Always pair through the Switch Control flow, not the main Bluetooth menu:
-
 Settings, Accessibility, Switch Control, Switches, Add New Switch,
 External, then press the button and assign an action.
 
@@ -123,9 +121,6 @@ Settings survive all three. Releases carry the .zip and .uf2, built by
 
 ## Battery
 
-The hardware takes care of itself; the firmware's job is honest
-reporting.
-
 Charging is handled entirely by the XIAO's onboard BQ25101 charger IC:
 50mA (a gentle 0.2C for the 250mAh cell), 4.20V termination, fixed in
 hardware. A cell that measures 4.15 to 4.20V after charging is full and
@@ -148,30 +143,26 @@ true resting value after unplugging instead of jumping, and radio-sag
 transients can't make it bounce. The LED warns too: solid red below
 3.55V, blinking red below 3.35V.
 
-There is no firmware low-voltage shutdown. An earlier version had one and
-it false-triggered on Bluetooth transmit sag. The 3.5V reporting floor
-leaves comfortable margin above the roughly 3.0V where LiPo damage
-starts.
-
-One note for anyone with a pre-v3 unit: firmware before v3 addressed the
-battery pins by raw port number, which this Arduino core ignores, so its
-battery readings were always 0V and its warnings meant nothing. v3 uses
-the board's pin map correctly.
+A firmware low-voltage sleep is planned. Until it lands, use a protected
+cell (its protection circuit cuts output before the roughly 3.0V where
+LiPo damage starts) and charge when the LED turns red.
 
 ## Longevity
 
-The durable part of this project is the documented Bluetooth protocol
+This project is built on a documented Bluetooth protocol
 ([docs/ble-protocol.md](docs/ble-protocol.md)) and the standard services
 around it. Every client is replaceable against it: the web page, the iOS
 app, Nordic's DFU tools (built on open-source libraries), and the
-UF2 file copy, which is just a file on a USB drive and cannot rot.
+UF2 file copy, a file that loads off a USB drive. Anything that speaks
+the protocol can drive the switch, which leaves room for future clients
+and new use cases.
 
-If Bluefy ever disappears from the App Store, the page still has a path
-to iOS: [WebBLE](https://github.com/daphtdazz/WebBLE) is an Apache-2.0
-open-source browser using the same technique, and a fork of it (or a
-Capacitor wrapper around this same page) restores support. Apple has
-formally declined to add Web Bluetooth to Safari, so plan around that
-rather than waiting for it.
+A current limitation on iOS requires a different browser to access the
+web app; a common alternative for this application is
+[Bluefy](https://apps.apple.com/app/id1492822055).
+[WebBLE](https://github.com/daphtdazz/WebBLE) is an Apache-2.0
+open-source browser using the same technique, and a fork restores
+support.
 
 ## Status and roadmap
 
@@ -183,23 +174,12 @@ A 3D-printed case is in the works. The enclosure is being designed and
 tested now, and the print and design files will be published here once
 they hold up in use.
 
-Open threads:
-
-- Field-test v3 on hardware: battery numbers, sleep, all three modes.
-- Test the config page in Bluefy and Android Chrome end to end.
-- Get the iOS app onto TestFlight, then the App Store.
-- Finish and publish the 3D-printed case design files.
-- Wiring photos, assembly guide, carrier PCB with an onboard button.
-- Test against switch-adapted apps (e.g. Inclusive Technology).
-- Android Switch Access has not been tried; reports welcome.
-
 ## Contributing
 
 Issues and pull requests are welcome, and so are reports from anyone who
 builds one. Useful contributions don't have to be code: testing with
 different apps or devices, enclosure designs, clearer assembly docs, or
-accessibility feedback from daily use all help. For bigger changes, open
-an issue first to talk it through.
+accessibility feedback from daily use all help.
 
 ## Safety notes
 
@@ -210,7 +190,7 @@ one for a child, make sure the enclosure is secure enough that the
 battery and small parts can't be reached. The Bluetooth configuration and
 update paths are open by design (see the security note in
 [docs/ble-protocol.md](docs/ble-protocol.md)); anyone within radio range
-could change settings, so don't use this design where that matters.
+could change settings, so take care where that matters.
 
 ## License
 
