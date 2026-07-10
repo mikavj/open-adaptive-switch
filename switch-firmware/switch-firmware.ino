@@ -36,10 +36,13 @@
 //     wiki warning). Earlier firmware versions addressed these pins by
 //     raw port number, which this core ignores, so v1/v2 battery
 //     readings never actually worked - they always returned 0V.
-//   - No firmware low-voltage shutdown. v2.0 had one and it false-
-//     triggered on BLE TX sag. Low battery is reported by LED and over
-//     BLE; the percentage table bottoms out at 3.5V, well above damage
-//     territory.
+//   - Protective low-voltage cutoff: if the smoothed voltage stays below
+//     3.30V for three consecutive 30s samples while nothing is charging,
+//     the firmware blinks red and takes the same system-off path as the
+//     inactivity timer. A press wakes it; if the cell is still low it
+//     re-warns and re-sleeps. v2.0's cutoff acted on single readings and
+//     false-triggered on BLE TX sag; the sustained-streak requirement on
+//     the EMA-filtered voltage is the fix.
 // =========================================================================
 
 #include <bluefruit.h>
@@ -48,7 +51,7 @@
 
 using namespace Adafruit_LittleFS_Namespace;
 
-#define FW_VERSION "3.1.1"
+#define FW_VERSION "3.1.2"
 
 // =========================================================================
 // ====================== SETTINGS YOU MIGHT CHANGE ========================
@@ -116,6 +119,8 @@ const uint32_t BAT_SAMPLE_MS       = 30000;  // voltage sample cadence
 const uint8_t  BAT_BURST_READS     = 8;      // ADC reads averaged per sample
 const float    BAT_LOW_V           = 3.55;   // solid red status LED
 const float    BAT_CRITICAL_V      = 3.35;   // blinking red status LED
+const float    BAT_CUTOFF_V        = 3.30;   // sustained below this: protective sleep
+const uint8_t  BAT_CUTOFF_SAMPLES  = 3;      // consecutive low samples before cutoff
 // A charged cell relaxes to ~4.15V after unplugging. Hold the reading at
 // 100% until it falls below this, so a freshly charged switch keeps
 // showing full instead of dropping the moment it is unplugged.
@@ -255,6 +260,7 @@ float    batteryV         = 4.0;    // EMA-filtered volts
 uint8_t  reportedPercent  = 255;    // last value pushed over BLE
 uint8_t  batteryState     = BATT_DISCHARGING;
 uint8_t  displayedPct     = 255;    // smoothed percent (255 = uninitialized)
+uint8_t  lowVSamples      = 0;      // consecutive samples below BAT_CUTOFF_V
 bool     wasFull          = false;  // reached full-on-USB; hold 100 until it relaxes
 bool     buttonPrev       = HIGH;
 uint32_t buttonChangeMs   = 0;
@@ -419,6 +425,15 @@ void batterySample() {
 
   // Also advertise the battery so scanners can show it before connecting.
   refreshAdvBattery(pct, batteryState);
+
+  // Streak of consecutive samples below the cutoff, counted only while
+  // discharging; charging, USB power, or one healthy sample resets it.
+  // loop() acts once the streak reaches BAT_CUTOFF_SAMPLES.
+  if (batteryState == BATT_DISCHARGING && batteryV < BAT_CUTOFF_V) {
+    if (lowVSamples < 255) lowVSamples++;
+  } else {
+    lowVSamples = 0;
+  }
 }
 
 // =========================================================================
@@ -573,8 +588,32 @@ void enterDeepSleep() {
   nrf_gpio_cfg_sense_input(digitalPinToPinName(PIN_BUTTON),
                            NRF_GPIO_PIN_PULLUP,
                            NRF_GPIO_PIN_SENSE_LOW);
-  Bluefruit.Advertising.stop();
-  sd_power_system_off();
+  // sd_power_system_off is only valid once Bluefruit.begin has enabled
+  // the SoftDevice. The boot-time low-voltage re-check sleeps before
+  // that, so it needs the raw register instead.
+  uint8_t sdEnabled = 0;
+  (void)sd_softdevice_is_enabled(&sdEnabled);
+  if (sdEnabled) {
+    Bluefruit.Advertising.stop();
+    sd_power_system_off();
+  } else {
+    NRF_POWER->SYSTEMOFF = 1;
+  }
+  while (true) delay(10);   // system-off is immediate; never reached
+}
+
+// Low-voltage cutoff: brief red warning, then the same system-off path
+// the inactivity timer uses. Fired from loop() after a sustained low
+// streak, and from setup() when the switch wakes with the cell still low.
+void lowBatterySleep() {
+  ledAllOff();
+#ifdef ENABLE_EXT_CHARGE_LED
+  extOff();
+#endif
+  for (uint8_t i = 0; i < 6; i++) {
+    ledRedOn(); delay(100); ledRedOff(); delay(150);
+  }
+  enterDeepSleep();
 }
 
 // =========================================================================
@@ -682,6 +721,16 @@ void setup() {
   // filter with a real value instead of the 4.0 placeholder.
   delay(10);
   batteryV = readBatteryVoltageOnce();
+
+  // Waking with the cell still below the cutoff and nothing charging:
+  // warn and go straight back to sleep. No radio is up yet, so these
+  // are resting readings; confirm with a second read before deciding.
+  if (batteryV < BAT_CUTOFF_V && !chargerActive() && !usbPowered()) {
+    delay(100);
+    if (readBatteryVoltageOnce() < BAT_CUTOFF_V) {
+      lowBatterySleep();
+    }
+  }
 
   // Boot indication: accent flash, then 1-3 blinks for battery level.
   ledAccentOn(); delay(300); ledAllOff();
@@ -859,6 +908,15 @@ void loop() {
   if (now - lastBatSampleMs > BAT_SAMPLE_MS) {
     lastBatSampleMs = now;
     batterySample();
+  }
+
+  // Protective cutoff: the smoothed voltage stayed below BAT_CUTOFF_V
+  // for BAT_CUTOFF_SAMPLES consecutive samples (a minute at the 30s
+  // cadence) with nothing charging. BLE TX sag lasts milliseconds, so
+  // it cannot hold the EMA down across a whole streak - that transient
+  // is what false-triggered the v2.0 cutoff this replaces.
+  if (lowVSamples >= BAT_CUTOFF_SAMPLES) {
+    lowBatterySleep();
   }
 
   // Inactivity sleep, runtime-configurable; 0 disables. Skipped while on

@@ -143,9 +143,17 @@ true resting value after unplugging instead of jumping, and radio-sag
 transients can't make it bounce. The LED warns too: solid red below
 3.55V, blinking red below 3.35V.
 
-A firmware low-voltage sleep is planned. Until it lands, use a protected
-cell (its protection circuit cuts output before the roughly 3.0V where
-LiPo damage starts) and charge when the LED turns red.
+The firmware also protects the cell itself. If the smoothed voltage
+stays below 3.30V for three consecutive samples (about a minute) while
+nothing is charging, the switch blinks red and enters the same deep
+sleep the inactivity timer uses. A press wakes it; if the cell is still
+low it warns again and goes back to sleep. A forgotten switch therefore
+cannot drain the cell toward the roughly 3.0V where LiPo damage starts.
+The cutoff never fires while the charger IC reports charging or charged,
+and it requires the low voltage to persist across a full minute of
+samples, so the brief sag from Bluetooth transmissions cannot trigger
+it. A protected cell is still good practice, but the firmware no longer
+depends on its cutoff.
 
 ## Longevity
 
