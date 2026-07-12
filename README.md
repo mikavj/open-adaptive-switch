@@ -47,9 +47,10 @@ Configuration happens over Bluetooth, from either of two clients:
 Android device and tap Connect. On an iPhone or iPad, install the free
 [Bluefy browser](https://apps.apple.com/app/id1492822055) first, then
 open the page inside it - Safari does not support Web Bluetooth, and a
-link into Bluefy does nothing until the app is installed. A QR code
-pointing at the page is in [docs/qr](docs/qr), sized to print on the
-bottom of an enclosure.
+link into Bluefy does nothing until the app is installed. The page also
+installs firmware updates and puts the first firmware on a blank board,
+straight over Bluetooth. A QR code pointing at the page is in
+[docs/qr](docs/qr), sized to print on the bottom of an enclosure.
 
 **The iOS app**, in [app/](app/). A native SwiftUI app with the same
 controls plus built-in firmware updates. It is not on the App Store yet;
@@ -102,19 +103,21 @@ Forget Device first, then pair again.
 
 Three ways, most convenient first:
 
-1. **Wireless, from a phone.** The config page or app puts the switch
-   into update mode; Nordic's free
+1. **Wireless, from the config page or app.** Both install updates
+   directly: put the switch into update mode and the same page or app
+   sends it the new firmware. Both can also flash a blank board ("Set
+   up a new board"), so a switch can be built and updated without a
+   computer. Nordic's free
    [nRF Device Firmware Update](https://apps.apple.com/app/id1624454660)
-   app (or the iOS app in this repo, which has the updater built in)
-   sends it the release .zip. Both walk you through it.
+   app works too, with the release .zip.
 2. **Any computer, no software.** Download the release .uf2, double-tap
    the switch's reset button, and a USB drive appears. Drag the file
    onto it; the switch reboots updated. (The copy dialog may report an
    error at the end - that's the drive vanishing on reboot, and the
    update still succeeded.)
 3. **Wired, with the toolchain.** `./flash.sh` - see
-   [SETUP.md](SETUP.md). Needed once per new board, since boards ship
-   without this firmware.
+   [SETUP.md](SETUP.md). For development and recovery; a new board can
+   be set up wirelessly instead (option 1).
 
 Settings survive all three. Releases carry the .zip and .uf2, built by
 `./make_release.sh`.

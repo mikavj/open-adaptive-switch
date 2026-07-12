@@ -57,6 +57,7 @@
   .gauge { display: flex; align-items: center; gap: 0.8rem; }
   .gauge svg { flex: none; }
   .hidden { display: none; }
+  progress { width: 100%; height: 0.6rem; accent-color: var(--accent); }
   footer { color: var(--muted); font-size: 0.85rem; margin: 2rem 0 1rem; }
   a { color: var(--accent); }
   code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 0 0.25rem; }
@@ -66,8 +67,9 @@
 
 <h1>Open Adaptive Switch</h1>
 <p class="sub">Set up your switch from this page: key binding, press modes,
-sleep timer, name, and firmware updates. Nothing to install on the switch
-side, and your settings stay on the switch itself.</p>
+sleep timer, name, firmware updates, and first-time setup of a blank
+board. Nothing to install on the switch side, and your settings stay on
+the switch itself.</p>
 
 <section id="unsupported" class="hidden">
   <h2>This browser can't talk to Bluetooth devices</h2>
@@ -102,6 +104,30 @@ side, and your settings stay on the switch itself.</p>
     <button id="btn-disconnect" class="secondary hidden">Disconnect</button>
   </div>
   <p id="status">Not connected.</p>
+</section>
+
+<section id="setup-section">
+  <h2>Set up a new board</h2>
+  <p>A factory-fresh Seeed XIAO nRF52840 can receive the switch firmware
+  from this page - no computer or extra software needed.</p>
+  <ol>
+    <li>Power the board over USB or battery.</li>
+    <li>Double-tap the small reset button beside the USB-C port. That
+    puts it in update mode.</li>
+    <li>Choose "Find the board and install" and pick the device that
+    appears.</li>
+  </ol>
+  <p>Firmware to install: <strong id="dfu-package">checking...</strong>
+  <br><a href="#" id="dfu-pick">Use a downloaded .zip instead</a>
+  <input type="file" id="dfu-file" accept=".zip" class="hidden"></p>
+  <p><button id="btn-flash">Find the board and install</button></p>
+  <div id="flash-progress" class="hidden">
+    <progress id="flash-bar" max="100" value="0"></progress>
+    <p id="flash-status" class="sub"></p>
+  </div>
+  <p class="sub">Updating an existing switch? After "Put switch into
+  update mode" in the Firmware section, it is already waiting - come back
+  here and choose Find, no reset needed.</p>
 </section>
 
 <div id="panels" class="hidden">
@@ -203,8 +229,12 @@ side, and your settings stay on the switch itself.</p>
   <p id="fw-verdict"></p>
   <p><a id="fw-download" class="hidden" href="#">Download the update package (.zip)</a></p>
   <p><button id="btn-dfu" class="secondary">Put switch into update mode</button></p>
+  <p class="sub">The switch restarts into its bootloader and this
+  connection drops. Then install right from this page: the "Set up a new
+  board" section handles a switch in update mode the same way - just
+  choose Find. Your settings are kept.</p>
   <details>
-    <summary>How to install an update from an iPhone or iPad</summary>
+    <summary>Alternative: install with Nordic's DFU app</summary>
     <ol>
       <li>Download the release .zip above and keep it in the Files app.</li>
       <li>Install Nordic's free <a href="https://apps.apple.com/app/id1624454660">nRF Device Firmware Update</a> app.</li>
@@ -271,6 +301,12 @@ const CHR = {
 };
 const CMD = { reboot: 1, factory: 2, dfu: 3 };
 
+// Nordic legacy DFU, spoken by the board's stock bootloader. The same
+// protocol the iOS app and nRF DFU app use.
+const SVC_DFU  = "00001530-1212-efde-1523-785feabcd123";
+const DFU_CTRL = "00001531-1212-efde-1523-785feabcd123";
+const DFU_PKT  = "00001532-1212-efde-1523-785feabcd123";
+
 // HID keyboard usage codes (USB HID usage table, keyboard page), grouped
 // for the dropdown.
 const KEY_GROUPS = [
@@ -309,6 +345,7 @@ function setStatus(text, cls) {
   if (navigator.bluetooth) return;
   $("unsupported").classList.remove("hidden");
   $("connect-section").classList.add("hidden");
+  $("setup-section").classList.add("hidden");
   const isApple = /iPhone|iPad|iPod/.test(navigator.userAgent)
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (isApple) {
@@ -434,6 +471,7 @@ async function connect() {
     await chars.battery.startNotifications();
     $("panels").classList.remove("hidden");
     $("btn-disconnect").classList.remove("hidden");
+    $("setup-section").classList.add("hidden");
     setStatus("Connected to " + (device.name || "switch") + ".", "ok");
     readFirmwareVersion();
   } catch (e) {
@@ -446,6 +484,7 @@ async function connect() {
 function onDisconnected() {
   $("panels").classList.add("hidden");
   $("btn-disconnect").classList.add("hidden");
+  $("setup-section").classList.remove("hidden");
   // Keep the more useful message when the disconnect was requested
   // (restart, factory reset, update mode): those handlers already
   // explained what happens next.
@@ -527,6 +566,8 @@ async function checkLatestRelease(installed) {
   const rel = await r.json();
   const latest = (rel.tag_name || "").replace(/^[vV]/, "");
   $("fw-latest").textContent = latest || "unknown";
+  ghLatest = latest || null;
+  renderPackageLabel();
   const zip = (rel.assets || []).find(a => a.name.endsWith(".zip"));
   if (zip) {
     const dl = $("fw-download");
@@ -637,12 +678,319 @@ guarded("btn-factory", "Resetting", async () => {
 
 guarded("btn-dfu", "Update mode", async () => {
   if (!confirm("Put the switch into firmware update mode?\n\n"
-    + "Only do this with an update package ready. To back out without "
-    + "installing anything, press the small reset button on the switch.")) return false;
+    + "To back out without installing anything, press the small reset "
+    + "button on the switch.")) return false;
   expectedDisconnect = true;
   await writeBytes("command", [CMD.dfu]);
-  setStatus("Update mode. This connection will drop; continue in the DFU app. "
-    + "To cancel, press the switch's reset button.", "");
+  setStatus("Update mode. This connection dropped; in the section above, "
+    + "choose \"Find the board and install\". To cancel instead, press "
+    + "the switch's reset button.", "");
+});
+
+// ---- firmware install over Web Bluetooth (legacy Nordic DFU) ----
+
+// Minimal zip reader: walks the central directory. Handles stored
+// entries directly and deflate through DecompressionStream. The release
+// packages are three small stored files.
+function zipEntries(buf) {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  let eocd = -1;
+  const floor = Math.max(0, buf.byteLength - 22 - 65535);
+  for (let i = buf.byteLength - 22; i >= floor; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("that file isn't a .zip package");
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const entries = {};
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error("the .zip directory is damaged");
+    const method  = dv.getUint16(off + 10, true);
+    const csize   = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const cmtLen  = dv.getUint16(off + 32, true);
+    const lho     = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nameLen));
+    // Name/extra lengths in the local header can differ from the
+    // central directory's; trust the local ones for the data offset.
+    const dataStart = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    entries[name] = { method, data: u8.subarray(dataStart, dataStart + csize) };
+    off += 46 + nameLen + extraLen + cmtLen;
+  }
+  return entries;
+}
+
+async function entryBytes(entry) {
+  if (entry.method === 0) return entry.data;
+  if (entry.method === 8 && typeof DecompressionStream === "function") {
+    const stream = new Blob([entry.data]).stream()
+      .pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  throw new Error("the package uses a compression this browser can't unpack");
+}
+
+// Pull the application image and its init packet out of an OTA .zip.
+async function loadPackage(buf, label) {
+  const entries = zipEntries(buf);
+  const manifestEntry = entries["manifest.json"];
+  if (!manifestEntry) throw new Error("no manifest.json in the package");
+  const manifest = JSON.parse(new TextDecoder().decode(await entryBytes(manifestEntry)));
+  const appInfo = manifest.manifest && manifest.manifest.application;
+  if (!appInfo) throw new Error("the package holds no application image");
+  const bin = entries[appInfo.bin_file];
+  const dat = entries[appInfo.dat_file];
+  if (!bin || !dat) throw new Error("the package is missing its firmware files");
+  return { bin: await entryBytes(bin), dat: await entryBytes(dat), label };
+}
+
+// The package served next to this page (kept current by make_release.sh).
+// GitHub's release downloads refuse cross-origin fetches, hence the
+// same-origin copy; a hand-picked .zip covers everything else.
+let hostedMeta = null;
+let hostedPackagePromise = null;
+let pickedPackage = null;
+let pickError = null;   // a failed pick blocks flashing rather than falling back
+let ghLatest = null;    // newest tag on GitHub, for a cross-check below
+
+// The label above the install button. A picked file (or its error)
+// wins; otherwise the hosted package, with a warning when GitHub lists
+// a newer release than this page's copy - flashing would silently
+// downgrade in that case.
+function renderPackageLabel() {
+  if (pickedPackage || pickError) return;
+  if (!hostedMeta) {
+    $("dfu-package").textContent = "not available from this page; pick a downloaded .zip below";
+    return;
+  }
+  if (ghLatest && cmpVersion(ghLatest, hostedMeta.version) > 0) {
+    $("dfu-package").textContent = "v" + hostedMeta.version + " - GitHub lists v"
+      + ghLatest + " as the latest, so this page's copy is behind; a downloaded "
+      + ".zip may be the better choice";
+    return;
+  }
+  $("dfu-package").textContent = "v" + hostedMeta.version + " (latest release)";
+}
+
+(async function showPackageInfo() {
+  try {
+    const r = await fetch("firmware/latest.json", { cache: "no-store" });
+    if (!r.ok) throw new Error();
+    hostedMeta = await r.json();
+  } catch (_) {
+    // hostedMeta stays null; the label says to pick a file.
+  }
+  renderPackageLabel();
+})();
+// Also learn the newest tag before any connection, so the cross-check
+// works for the new-board flow too.
+checkLatestRelease(null);
+
+function hostedPackage() {
+  if (!hostedMeta) return Promise.reject(new Error("no package is available; pick a .zip below"));
+  if (!hostedPackagePromise) {
+    hostedPackagePromise = (async () => {
+      const r = await fetch("firmware/" + hostedMeta.file, { cache: "no-store" });
+      if (!r.ok) throw new Error("couldn't download the package (" + r.status + ")");
+      return loadPackage(await r.arrayBuffer(), "v" + hostedMeta.version);
+    })();
+    hostedPackagePromise.catch(() => { hostedPackagePromise = null; });
+  }
+  return hostedPackagePromise;
+}
+
+$("dfu-pick").addEventListener("click", (e) => {
+  e.preventDefault();
+  // Clear the value so re-picking the same file still fires "change"
+  // (it doesn't otherwise, which would strand a retry after a bad read).
+  $("dfu-file").value = "";
+  $("dfu-file").click();
+});
+$("dfu-file").addEventListener("change", async () => {
+  const f = $("dfu-file").files[0];
+  if (!f) return;
+  try {
+    pickedPackage = await loadPackage(await f.arrayBuffer(), f.name);
+    pickError = null;
+    $("dfu-package").textContent = f.name;
+  } catch (e) {
+    pickedPackage = null;
+    pickError = e;
+    $("dfu-package").textContent = "couldn't read that file: " + e.message;
+  }
+});
+
+// Stream a package to a board in update mode. Returns false if the
+// person closed the device chooser, true when the board rebooted with
+// the new firmware. Throws on anything in between.
+async function flashPackage(pkg, progress) {
+  let dev;
+  try {
+    dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [SVC_DFU] }] });
+  } catch (e) {
+    if (e.name === "NotFoundError") return false;   // chooser closed
+    throw e;
+  }
+  progress(0, "Connecting to the board...");
+  const gatt = await dev.gatt.connect();
+  try {
+    const svc = await gatt.getPrimaryService(SVC_DFU);
+    const ctrl = await svc.getCharacteristic(DFU_CTRL);
+    const pkt = await svc.getCharacteristic(DFU_PKT);
+
+    // Notifications from the control point answer each request; a
+    // simple waiter queue keeps them in order. A dropped link fails
+    // every waiter rather than hanging the flow.
+    const waiters = [];
+    const failAll = (msg) => { while (waiters.length) waiters.shift().reject(new Error(msg)); };
+    dev.addEventListener("gattserverdisconnected",
+      () => failAll("the connection dropped"), { once: true });
+    ctrl.addEventListener("characteristicvaluechanged", (ev) => {
+      const dvv = ev.target.value;
+      const v = new Uint8Array(dvv.buffer, dvv.byteOffset, dvv.byteLength);
+      const w = waiters.shift();
+      if (w) w.resolve(v);
+    });
+    await ctrl.startNotifications();
+
+    const nextNotification = (what) => new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("timed out waiting for " + what)), 30000);
+      waiters.push({
+        resolve: (v) => { clearTimeout(t); resolve(v); },
+        reject:  (e) => { clearTimeout(t); reject(e); },
+      });
+    });
+    // Wait for the response to one opcode, letting stray transfer
+    // receipts pass (one can land just before a response).
+    const expectResponse = async (op, what) => {
+      for (;;) {
+        const v = await nextNotification(what);
+        if (v[0] === 0x11) continue;
+        if (v[0] !== 0x10 || v[1] !== op) throw new Error("unexpected reply during " + what);
+        if (v[2] !== 0x01) throw new Error(what + " was refused (code " + v[2] + ")");
+        return;
+      }
+    };
+    const writeCtrl = (bytes) => ctrl.writeValue(new Uint8Array(bytes));
+    const writePkt = (bytes) => pkt.writeValueWithoutResponse
+      ? pkt.writeValueWithoutResponse(bytes) : pkt.writeValue(bytes);
+    const u32 = (v) => [v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF];
+
+    // 1. Start DFU (application image), then the size frame.
+    progress(2, "Starting...");
+    await writeCtrl([0x01, 0x04]);
+    await pkt.writeValue(new Uint8Array([...u32(0), ...u32(0), ...u32(pkg.bin.length)]));
+    await expectResponse(0x01, "start");
+
+    // 2. Init packet (device type and CRC from the package).
+    await writeCtrl([0x02, 0x00]);
+    await pkt.writeValue(pkg.dat);
+    await writeCtrl([0x02, 0x01]);
+    await expectResponse(0x02, "the compatibility check");
+
+    // 3. Stream the image, a receipt every 8 packets for flow control
+    //    (8 is what the bootloader is comfortable with on iOS too).
+    const PRN = 8;
+    await writeCtrl([0x08, PRN & 0xFF, (PRN >> 8) & 0xFF]);
+    await writeCtrl([0x03]);
+    const total = pkg.bin.length;
+    let sent = 0, packets = 0;
+    while (sent < total) {
+      const piece = pkg.bin.subarray(sent, Math.min(sent + 20, total));
+      await writePkt(piece);
+      sent += piece.length;
+      packets++;
+      // No receipt follows the packet that completes the image - the
+      // bootloader sends the transfer response instead. Waiting here on
+      // an exact-multiple image would swallow that response and time
+      // out after a fully successful transfer.
+      if (packets % PRN === 0 && sent < total) {
+        const v = await nextNotification("the transfer");
+        if (v[0] === 0x10 && v[2] !== 0x01) {
+          throw new Error("the board reported an error mid-transfer (code " + v[2] + ")");
+        }
+      }
+      if (packets % 40 === 0 || sent === total) {
+        progress(2 + Math.round(93 * sent / total),
+          "Installing... " + Math.round(sent / 1024) + " of "
+          + Math.round(total / 1024) + " KB");
+      }
+    }
+    await expectResponse(0x03, "the transfer");
+
+    // 4. Validate, then activate. Activation reboots the board, which
+    //    can cut the link before the write call returns - that is
+    //    success, not failure.
+    progress(97, "Checking the installed firmware...");
+    await writeCtrl([0x04]);
+    await expectResponse(0x04, "validation");
+    try { await writeCtrl([0x05]); } catch (_) {}
+    return true;
+  } finally {
+    try { gatt.disconnect(); } catch (_) {}
+  }
+}
+
+let flashing = false;
+$("btn-flash").addEventListener("click", async () => {
+  if (flashing) return;
+  flashing = true;
+  const btn = $("btn-flash");
+  btn.disabled = true;
+  const statusEl = $("flash-status");
+  statusEl.classList.remove("warn");
+  // A previous run's text and bar value would otherwise sit there the
+  // whole time the device chooser is open.
+  statusEl.textContent = "";
+  $("flash-bar").value = 0;
+  const progress = (pct, text) => {
+    $("flash-progress").classList.remove("hidden");
+    $("flash-bar").value = pct;
+    statusEl.textContent = text;
+  };
+  const fail = (message) => {
+    $("flash-progress").classList.remove("hidden");
+    statusEl.classList.add("warn");
+    statusEl.textContent = message;
+    btn.disabled = false;
+    flashing = false;
+  };
+
+  // Getting the package can fail with no board involved; that gets
+  // download advice, not board-recovery advice.
+  if (pickError) {
+    fail("Install failed: the chosen .zip couldn't be read. Pick another "
+      + "file, or reload the page to use the latest release.");
+    return;
+  }
+  let pkg;
+  try {
+    pkg = pickedPackage || await hostedPackage();
+  } catch (e) {
+    fail("Install failed: " + e.message + ". Check the internet "
+      + "connection and try again, or pick a downloaded .zip.");
+    return;
+  }
+
+  try {
+    const ok = await flashPackage(pkg, progress);
+    if (ok) {
+      progress(100, "Done - " + pkg.label + " installed. The board restarted "
+        + "as a switch; press its button once, then connect at the top of "
+        + "this page to set it up.");
+    } else {
+      $("flash-progress").classList.add("hidden");
+    }
+  } catch (e) {
+    fail("Install failed: " + e.message + ". The board normally stays in "
+      + "update mode, so trying again is safe. If it stopped showing up, "
+      + "double-tap the reset button and retry.");
+    return;
+  }
+  btn.disabled = false;
+  flashing = false;
 });
 </script>
 </body>

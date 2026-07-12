@@ -14,7 +14,7 @@ All multi-byte values are little-endian. All characteristics are open
 | HID | 0x1812 | the switch itself (keyboard reports) |
 | Battery | 0x180F | standard percentage, shows in the iOS Batteries widget |
 | Device Information | 0x180A | firmware revision (0x2A26), model, manufacturer |
-| Nordic DFU | 00001530-1212-EFDE-1523-785FEABCD123 | reboot into the OTA bootloader |
+| Nordic DFU | 00001530-1212-EFDE-1523-785FEABCD123 | legacy DFU; the bootloader serves it in update mode |
 | Config | F6BA8E00-4094-4E31-B42A-5AAEF6FC5C7D | everything below |
 
 The config service UUID is advertised in the scan response, so Web
@@ -80,13 +80,18 @@ notify-on-change), which is what iOS reads.
 
 ## Firmware update flow
 
-1. Client writes command 3 (or the user uses Nordic's app directly
-   against the DFU service). The switch saves nothing extra - settings
-   are already on flash - and reboots into the Adafruit bootloader.
-2. The bootloader advertises as a DFU target under a different address.
-3. Nordic's "nRF Device Firmware Update" app (iOS/Android) or nRF
-   Connect sends the release .zip (built by `make_release.sh`, attached
-   to GitHub releases).
+1. Client writes command 3. The switch saves nothing extra - settings
+   are already on flash - and reboots into the Adafruit bootloader. A
+   factory-fresh board reaches the same state with a double-tap of its
+   reset button.
+2. The bootloader advertises the DFU service under a different address.
+3. The config page and the iOS app flash it directly, speaking Nordic
+   legacy DFU (SDK 11): control point 0x1531 (write + notify), packet
+   0x1532 (write without response), packet-receipt interval 8. The page
+   fetches the package from its own origin (`docs/firmware/`, kept
+   current by `make_release.sh`); the app downloads it from GitHub
+   releases. Nordic's "nRF Device Firmware Update" app or nRF Connect
+   works too, given the release .zip.
 4. The bootloader verifies the package CRC and SoftDevice requirement
    (S140 7.3.0, `--sd-req 0x0123`), flashes, and reboots into the new
    firmware. Settings in internal flash are untouched.

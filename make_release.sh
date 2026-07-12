@@ -74,11 +74,24 @@ else
   echo "  (Expected under \$HOME/Library/Arduino15 or \$HOME/.arduino15.)" >&2
 fi
 
+# The config page installs firmware over Web Bluetooth and fetches the
+# package from its own origin (GitHub release downloads block cross-origin
+# fetches). Keep the latest package and a small pointer file in docs/,
+# which GitHub Pages serves.
+FW_DIR="$PROJECT_DIR/docs/firmware"
+mkdir -p "$FW_DIR"
+rm -f "$FW_DIR"/*.zip
+cp "$OUT_ZIP" "$FW_DIR/"
+printf '{\n  "version": "%s",\n  "file": "open-adaptive-switch-v%s-ota.zip"\n}\n' \
+  "$VERSION" "$VERSION" > "$FW_DIR/latest.json"
+echo "Config-page package refreshed (docs/firmware/)."
+
 echo
 echo "Release artifacts in release/:"
-echo "  open-adaptive-switch-v$VERSION-ota.zip  wireless update via the DFU app"
+echo "  open-adaptive-switch-v$VERSION-ota.zip  wireless update from the app or config page"
 echo "  open-adaptive-switch-v$VERSION.uf2      drag-and-drop update from any computer"
 echo "  open-adaptive-switch-v$VERSION.hex      wired flashing tools (optional)"
 echo
-echo "Publish: create GitHub release v$VERSION and attach the .zip and .uf2."
-echo "The config page and app find them through the GitHub releases API."
+echo "Publish: create GitHub release v$VERSION and attach the .zip and .uf2,"
+echo "and commit docs/firmware/ so the config page serves the new package."
+echo "The config page and app find releases through the GitHub API."

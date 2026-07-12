@@ -176,21 +176,28 @@ builds `switch-firmware` and produces three artifacts in `release/`:
   the application region (0x27000 up), so saved settings survive.
 - `....hex` - for wired flashing tools, optional.
 
+The script also copies the .zip into `docs/firmware/` and rewrites
+`docs/firmware/latest.json`. The config page installs firmware itself
+over Web Bluetooth and has to fetch the package from its own origin
+(GitHub's release downloads refuse cross-origin requests), so this copy
+is what the page actually flashes. Commit it with the release.
+
 Publishing an update:
 
-1. Bump `FW_VERSION` in the sketch, commit, push.
+1. Bump `FW_VERSION` in the sketch.
 2. Run `./make_release.sh`.
-3. Create a GitHub release with tag `vX.Y.Z` (matching FW_VERSION) and
+3. Commit (including `docs/firmware/`), push.
+4. Create a GitHub release with tag `vX.Y.Z` (matching FW_VERSION) and
    attach the .zip and .uf2. The config page and the iOS app read the
    latest release through the GitHub API, compare against the version
    the switch reports, and link the download.
 
-Installing an update from a phone is described on the config page and in
-[docs/ble-protocol.md](docs/ble-protocol.md). In short: put the switch in
-update mode from the page (or let the DFU app trigger it), then send the
-.zip with Nordic's nRF Device Firmware Update app. On iOS, keep the
+Installing an update from a phone: the config page and the iOS app both
+do it directly - put the switch in update mode and the same page or app
+sends the firmware. Nordic's nRF Device Firmware Update app still works
+as a fallback with the release .zip; on iOS, keep its
 packets-per-notification setting at 8 or below and enable scanning for
-legacy DFU devices.
+legacy DFU devices. Details in [docs/ble-protocol.md](docs/ble-protocol.md).
 
 Settings survive updates: they live in a LittleFS filesystem in internal
 flash, outside the application area.
