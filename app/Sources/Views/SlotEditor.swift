@@ -6,22 +6,27 @@
 // navigation-style picker this replaced did not, which is why key
 // changes appeared to do nothing.
 //
+// BindingEditor edits any KeyBinding through a binding, so the same rows
+// serve the connected-switch screen, profiles, and the default setup.
+// SlotEditor wraps it for the connected switch, writing over BLE.
+//
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Open Adaptive Switch contributors
 
 import SwiftUI
 
-struct SlotEditor: View {
-    @EnvironmentObject var manager: SwitchManager
-    let slot: Int
+struct BindingEditor: View {
+    let label: String
+    @Binding var binding: KeyBinding
 
-    @State private var keycode: UInt8 = 0x68
-    @State private var modifier: UInt8 = 0
     @State private var useCustom = false
     @State private var customText = ""
+    // What this editor last wrote; an outside change (applying a profile,
+    // a factory reset) makes the binding differ and triggers a re-seed.
+    @State private var lastWritten: KeyBinding?
 
     var body: some View {
-        Picker(SwitchMode.slotLabel(slot, mode: manager.config.mode), selection: keySelection) {
+        Picker(label, selection: keySelection) {
             ForEach(HIDKey.groups) { group in
                 Section(group.name) {
                     ForEach(group.keys, id: \.code) { k in
@@ -33,6 +38,9 @@ struct SlotEditor: View {
         }
         .pickerStyle(.menu)
         .onAppear(perform: seed)
+        .onChange(of: binding) {
+            if binding != lastWritten { seed() }
+        }
 
         if useCustom {
             HStack {
@@ -41,6 +49,7 @@ struct SlotEditor: View {
                 TextField("30", text: $customText)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
+                    .accessibilityLabel("Key code")
                     .frame(minWidth: 70, maxWidth: 120)
                     .onChange(of: customText) { commitCustom() }
             }
@@ -64,48 +73,64 @@ struct SlotEditor: View {
     // Selection is the keycode, with 255 standing in for "custom".
     private var keySelection: Binding<UInt8> {
         Binding(
-            get: { useCustom ? 255 : keycode },
+            get: { useCustom ? 255 : binding.keycode },
             set: { value in
                 if value == 255 {
                     useCustom = true
-                    if customText.isEmpty { customText = String(keycode) }
+                    if customText.isEmpty { customText = String(binding.keycode) }
                 } else {
                     useCustom = false
-                    keycode = value
-                    saveNow()
+                    write(keycode: value)
                 }
             })
     }
 
     private func modifierBinding(_ bit: UInt8) -> Binding<Bool> {
         Binding(
-            get: { modifier & bit != 0 },
+            get: { binding.modifier & bit != 0 },
             set: { on in
-                if on { modifier |= bit } else { modifier &= ~bit }
-                saveNow()
+                var m = binding.modifier
+                if on { m |= bit } else { m &= ~bit }
+                write(modifier: m)
             })
     }
 
     private var modifierSummary: String {
-        let names = HIDModifier.all.filter { modifier & $0.bit != 0 }.map { $0.name }
+        let names = HIDModifier.all.filter { binding.modifier & $0.bit != 0 }.map { $0.name }
         return names.isEmpty ? "None" : names.joined(separator: " + ")
     }
 
     private func commitCustom() {
         guard useCustom, let v = Int(customText), (0...255).contains(v) else { return }
-        keycode = UInt8(v)
-        saveNow()
+        write(keycode: UInt8(v))
     }
 
-    private func saveNow() {
-        manager.save(binding: KeyBinding(modifier: modifier, keycode: keycode), slot: slot)
+    private func write(keycode: UInt8? = nil, modifier: UInt8? = nil) {
+        let next = KeyBinding(modifier: modifier ?? binding.modifier,
+                              keycode: keycode ?? binding.keycode)
+        lastWritten = next
+        binding = next
     }
 
     private func seed() {
-        let b = manager.config.bindings[slot]
-        modifier = b.modifier
-        keycode = b.keycode
-        useCustom = !HIDKey.isKnown(b.keycode)
-        customText = useCustom ? String(b.keycode) : ""
+        useCustom = !HIDKey.isKnown(binding.keycode)
+        customText = useCustom ? String(binding.keycode) : ""
+        lastWritten = binding
+    }
+}
+
+// The connected switch's editor: reads from the live config and saves
+// each change over BLE right away.
+struct SlotEditor: View {
+    @EnvironmentObject var manager: SwitchManager
+    let slot: Int
+
+    var body: some View {
+        BindingEditor(
+            label: SwitchMode.slotLabel(slot, mode: manager.config.mode),
+            binding: Binding(
+                get: { manager.config.bindings[slot] },
+                set: { manager.save(binding: $0, slot: slot) }
+            ))
     }
 }

@@ -7,7 +7,10 @@ import SwiftUI
 
 struct ScanView: View {
     @EnvironmentObject var manager: SwitchManager
+    @EnvironmentObject var store: SwitchStore
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("hasSeenIntro") private var hasSeenIntro = false
+    @AppStorage("autoUpdate") private var autoUpdate = true
 
     var body: some View {
         NavigationStack {
@@ -43,11 +46,26 @@ struct ScanView: View {
                 }
             }
             .navigationTitle("Open Adaptive Switch")
+            .toolbar {
+                if hasSeenIntro {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            SettingsView()
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .accessibilityLabel("App settings")
+                    }
+                }
+            }
             .navigationDestination(isPresented: Binding(
                 get: { manager.phase == .ready },
                 set: { if !$0 { manager.disconnect() } }
             )) {
                 DeviceView()
+            }
+            .navigationDestination(for: UUID.self) { id in
+                RememberedSwitchView(switchID: id)
             }
             // The updater lives here at the root, not on the device
             // screen: entering update mode disconnects the switch and
@@ -58,6 +76,15 @@ struct ScanView: View {
                     .environmentObject(manager)
             }
             .onAppear { if hasSeenIntro { manager.startScan() } }
+            // Fetched here as well as on the device screen, so remembered
+            // switches can show their update arrows without connecting.
+            // Keyed to the scene phase: a launch without internet gets
+            // another chance every time the app comes to the front.
+            .task(id: scenePhase) {
+                if scenePhase == .active, autoUpdate {
+                    await manager.refreshLatestRelease()
+                }
+            }
         }
     }
 
@@ -104,6 +131,10 @@ struct ScanView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
+                        Button("No switch yet? Try a demo") {
+                            manager.startDemo()
+                        }
+                        .padding(.top, 6)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
@@ -119,6 +150,10 @@ struct ScanView: View {
                                 Text(item.name)
                                     .font(.body.weight(.medium))
                                 Spacer()
+                                if let entry = store.savedSwitch(for: item.id),
+                                   manager.updateAvailable(for: entry) {
+                                    UpdateBadge()
+                                }
                                 if let pct = item.battery {
                                     MiniBattery(percent: pct, charging: item.charging)
                                 }
@@ -131,6 +166,38 @@ struct ScanView: View {
                 }
             }
 
+            if !rememberedAway.isEmpty {
+                Section {
+                    ForEach(rememberedAway) { entry in
+                        NavigationLink(value: entry.id) {
+                            HStack(spacing: 10) {
+                                DomeSwitch(color: savedColor(entry), size: 30)
+                                    .opacity(0.45)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    // The name stays readable; the dimmed
+                                    // dome and the caption carry the
+                                    // "not in reach" look.
+                                    Text(entry.name.isEmpty ? "Switch" : entry.name)
+                                        .font(.body.weight(.medium))
+                                    Text("Last connected \(lastConnectedText(entry.lastConnected))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if manager.updateAvailable(for: entry) {
+                                    UpdateBadge()
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                } header: {
+                    Text("Previously connected")
+                } footer: {
+                    Text("Not in reach right now. Tap one to see the settings it had last time.")
+                }
+            }
+
             if let error = manager.lastError {
                 Section {
                     Label(error, systemImage: "exclamationmark.triangle")
@@ -139,12 +206,23 @@ struct ScanView: View {
             }
 
             Section {
-                Link(destination: URL(string: "https://github.com/mikavj/open-adaptive-switch")!) {
-                    Label("About Open Adaptive Switch", systemImage: "book")
+                Link(destination: URL(string: "https://openadaptiveswitch.com/")!) {
+                    Label("About Open Adaptive Switch", systemImage: "globe")
                 }
             } footer: {
                 Text("An open-source Bluetooth switch for iOS Switch Control. This app changes what the button sends, its sleep timer, name, and light, and installs firmware updates.")
             }
         }
+    }
+
+    // Remembered switches that aren't currently advertising nearby; the
+    // ones in reach are already in the live list above.
+    private var rememberedAway: [SavedSwitch] {
+        let nearby = Set(manager.discovered.map(\.id))
+        return store.saved.filter { !nearby.contains($0.id) }
+    }
+
+    private func savedColor(_ entry: SavedSwitch) -> Color {
+        entry.colorHex.flatMap { Color(hex: $0) } ?? .red
     }
 }

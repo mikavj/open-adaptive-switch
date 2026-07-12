@@ -52,10 +52,32 @@ final class SwitchManager: NSObject, ObservableObject {
     @Published var updaterPresented = false
     @Published var latestRelease: FirmwareRelease?
 
+    // Shown as a banner on the device screen the first time a switch
+    // connects, if the user has set up a default configuration.
+    @Published var offerDefaultSetup = false
+
     // Set before an intentional disconnect (restart, factory reset,
-    // update mode) so the UI doesn't treat it as a failure.
-    private var expectedDisconnect = false
+    // update mode) so the UI doesn't treat it as a failure. Readable so
+    // views can skip writes into a connection that's already closing.
+    private(set) var expectedDisconnect = false
     private(set) var enteredUpdateMode = false
+
+    // True while the pretend switch is "connected". Writes stay on the
+    // phone and nothing is remembered in the store.
+    private(set) var isDemo = false
+
+    // Remembered switches, profiles, and the default setup. The manager
+    // keeps snapshots in it as configuration changes arrive.
+    let store: SwitchStore
+
+    // True when the switch being connected isn't in the store yet;
+    // decided at connect time, consumed when loading finishes.
+    private var connectingToNewSwitch = false
+
+    init(store: SwitchStore) {
+        self.store = store
+        super.init()
+    }
 
     // Created on the first scan, not at init: creating a CBCentralManager
     // is what triggers the system Bluetooth permission dialog, and the
@@ -72,6 +94,7 @@ final class SwitchManager: NSObject, ObservableObject {
     // MARK: scanning
 
     func startScan() {
+        guard !isDemo else { return }
         guard let central = ensureCentral() else { return }
         guard central.state == .poweredOn else { return }
         discovered = []
@@ -102,6 +125,11 @@ final class SwitchManager: NSObject, ObservableObject {
         lastError = nil
         enteredUpdateMode = false
         expectedDisconnect = false
+        offerDefaultSetup = false
+        connectingToNewSwitch = !store.knows(item.id)
+        // Start from a clean slate: if an initial read fails, the
+        // snapshot must not inherit the previous switch's values.
+        config = SwitchConfig()
         pendingReads = []
         peripheral = item.peripheral
         item.peripheral.delegate = self
@@ -130,6 +158,10 @@ final class SwitchManager: NSObject, ObservableObject {
     }
 
     func disconnect() {
+        if isDemo {
+            endDemo()
+            return
+        }
         expectedDisconnect = true
         if let p = peripheral { central?.cancelPeripheralConnection(p) }
     }
@@ -139,7 +171,84 @@ final class SwitchManager: NSObject, ObservableObject {
         return config.name.isEmpty ? "Switch" : config.name
     }
 
-    var connectedID: UUID? { peripheral?.identifier }
+    var connectedID: UUID? {
+        if isDemo { return Self.demoID }
+        return peripheral?.identifier
+    }
+
+    // MARK: demo switch
+
+    // A fixed id so the demo keeps its dome color between visits and
+    // never collides with a real peripheral.
+    static let demoID = UUID(uuidString: "0000DEED-0000-0000-0000-000000000000")!
+
+    // A pretend switch for people who don't have the hardware in hand
+    // yet. Every control works; changes stay on the phone.
+    func startDemo() {
+        stopScan()
+        isDemo = true
+        lastError = nil
+        offerDefaultSetup = false
+        config = SwitchConfig(
+            mode: .tapHold,
+            bindings: [KeyBinding(keycode: 0x68), KeyBinding(keycode: 0x69), KeyBinding()],
+            sleepMinutes: 30, name: "Demo Switch", accent: .blue)
+        firmwareVersion = latestRelease?.version ?? "3.1.2"
+        battery = BatteryReading(millivolts: 4010, percent: 84, state: .onBattery)
+        phase = .ready
+    }
+
+    private func endDemo() {
+        isDemo = false
+        battery = nil
+        firmwareVersion = nil
+        config = SwitchConfig()
+        // Land on whatever the radio actually allows; Bluetooth may have
+        // been switched off while the demo (which needs none) was up.
+        switch central?.state {
+        case .poweredOff:
+            phase = .bluetoothOff
+        case .unauthorized:
+            phase = .unauthorized
+        default:
+            phase = .idle
+            startScan()
+        }
+    }
+
+    // MARK: release lookup (shared by the home screen badges and the
+    // device screen)
+
+    func refreshLatestRelease() async {
+        guard latestRelease == nil else { return }
+        latestRelease = try? await ReleaseChecker.latest()
+    }
+
+    // True when a remembered switch was last seen on something older
+    // than the newest published firmware.
+    func updateAvailable(for entry: SavedSwitch) -> Bool {
+        guard let latest = latestRelease, let fw = entry.firmwareVersion else { return false }
+        return ReleaseChecker.compare(latest.version, fw) > 0
+    }
+
+    // MARK: store snapshots
+
+    // Keep the remembered-switch entry in step with what's on the
+    // switch. Called once loading finishes and again as values change.
+    private func syncSnapshot() {
+        guard !isDemo, phase == .ready, let id = peripheral?.identifier else { return }
+        let adopted = store.touch(
+            id: id, name: config.name, firmwareVersion: firmwareVersion,
+            config: config,
+            colorHex: UserDefaults.standard.string(forKey: "dome.\(id.uuidString)"))
+        if adopted {
+            // A backup entry adopted by name is this same switch restored
+            // from another device, not a first-time connection - don't
+            // offer to overwrite its restored settings with the default.
+            connectingToNewSwitch = false
+            offerDefaultSetup = false
+        }
+    }
 
     // MARK: dome color (per switch, cosmetic, stored on the phone)
 
@@ -154,6 +263,7 @@ final class SwitchManager: NSObject, ObservableObject {
 
     func setDomeColor(_ color: Color, for id: UUID) {
         UserDefaults.standard.set(color.hexString, forKey: "dome.\(id.uuidString)")
+        store.setColor(hex: color.hexString, for: id)
         domeVersion += 1
     }
 
@@ -182,6 +292,21 @@ final class SwitchManager: NSObject, ObservableObject {
         write(SwitchBLE.keymapChar, config.keymapData)
     }
 
+    func save(bindings: [KeyBinding]) {
+        config.bindings = Array((bindings + [KeyBinding(), KeyBinding(), KeyBinding()]).prefix(3))
+        write(SwitchBLE.keymapChar, config.keymapData)
+    }
+
+    // Write a whole prepared configuration (default setup or profile) to
+    // the connected switch. The name stays as it is; it identifies the
+    // switch rather than being part of a setup.
+    func apply(_ preset: SwitchConfig) {
+        save(mode: preset.mode)
+        save(bindings: preset.bindings)
+        save(sleepMinutes: preset.sleepMinutes)
+        save(accent: preset.accent)
+    }
+
     func save(sleepMinutes: UInt16) {
         config.sleepMinutes = sleepMinutes
         write(SwitchBLE.sleepChar, Data([UInt8(sleepMinutes & 0xFF), UInt8(sleepMinutes >> 8)]))
@@ -204,6 +329,12 @@ final class SwitchManager: NSObject, ObservableObject {
     }
 
     func send(_ command: SwitchCommand) {
+        if isDemo {
+            // Restart and factory reset drop the connection on real
+            // hardware; the demo mirrors that by ending.
+            endDemo()
+            return
+        }
         if command != .enterUpdateMode {
             expectedDisconnect = true
         }
@@ -215,6 +346,11 @@ final class SwitchManager: NSObject, ObservableObject {
     }
 
     private func write(_ uuid: CBUUID, _ data: Data) {
+        if isDemo {
+            // The save methods already updated config; just confirm.
+            savedPulse += 1
+            return
+        }
         guard let p = peripheral, let c = chars[uuid] else {
             lastError = "Not connected."
             return
@@ -237,9 +373,11 @@ extension SwitchManager: CBCentralManagerDelegate {
                 }
                 self.startScan()
             case .unauthorized:
-                self.phase = .unauthorized
+                // The demo needs no radio; don't let a state change pop
+                // its screen (endDemo picks the right phase afterwards).
+                if !self.isDemo { self.phase = .unauthorized }
             case .poweredOff:
-                self.phase = .bluetoothOff
+                if !self.isDemo { self.phase = .bluetoothOff }
             default:
                 break
             }
@@ -295,8 +433,11 @@ extension SwitchManager: CBCentralManagerDelegate {
         let message = error?.localizedDescription
         Task { @MainActor in
             self.connectTimeout?.cancel()
+            // Stamp "last connected" as the moment the link ended.
+            self.syncSnapshot()
             let wasExpected = self.expectedDisconnect
             self.expectedDisconnect = false
+            self.offerDefaultSetup = false
             self.peripheral = nil
             self.chars = [:]
             self.pendingReads = []
@@ -378,6 +519,7 @@ extension SwitchManager: CBPeripheralDelegate {
                 self.pendingReads.remove(uuid)
                 if self.pendingReads.isEmpty {
                     self.phase = .ready
+                    self.finishLoading()
                 }
             }
             guard error == nil, let data else { return }
@@ -400,8 +542,18 @@ extension SwitchManager: CBPeripheralDelegate {
                 }
             } else if uuid != SwitchBLE.commandChar {
                 self.savedPulse += 1
+                self.syncSnapshot()
             }
         }
+    }
+
+    // Runs once per connection, when the initial reads are all in.
+    private func finishLoading() {
+        syncSnapshot()
+        if connectingToNewSwitch, store.defaultConfig != nil, !isDemo {
+            offerDefaultSetup = true
+        }
+        connectingToNewSwitch = false
     }
 
     private func apply(uuid: CBUUID, data: Data) {
@@ -424,6 +576,12 @@ extension SwitchManager: CBPeripheralDelegate {
             firmwareVersion = String(decoding: data, as: UTF8.self)
         default:
             break
+        }
+        // Reads can land after loading finished (the device-info read
+        // races the config reads); keep the remembered snapshot current.
+        // Battery pushes arrive constantly and aren't part of it.
+        if uuid != SwitchBLE.batteryChar {
+            syncSnapshot()
         }
     }
 

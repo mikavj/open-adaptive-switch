@@ -7,12 +7,20 @@ import SwiftUI
 
 @main
 struct OpenAdaptiveSwitchApp: App {
-    @StateObject private var manager = SwitchManager()
+    @StateObject private var store: SwitchStore
+    @StateObject private var manager: SwitchManager
+
+    init() {
+        let store = SwitchStore()
+        _store = StateObject(wrappedValue: store)
+        _manager = StateObject(wrappedValue: SwitchManager(store: store))
+    }
 
     var body: some Scene {
         WindowGroup {
             ScanView()
                 .environmentObject(manager)
+                .environmentObject(store)
         }
     }
 }

@@ -37,6 +37,11 @@ struct FirmwareUpdateView: View {
     @State private var downloading = false
     @State private var showFilePicker = false
     @State private var errorText: String?
+    // Which switch is being flashed and what's going onto it, captured
+    // when the flash starts: the picker stays live during the transfer,
+    // so its value at .done can't be trusted.
+    @State private var targetID: UUID?
+    @State private var flashedTag: String?
 
     var body: some View {
         NavigationStack {
@@ -63,6 +68,17 @@ struct FirmwareUpdateView: View {
             .fileImporter(isPresented: $showFilePicker,
                           allowedContentTypes: [UTType.zip]) { handleFile($0) }
             .onAppear(perform: loadReleases)
+            .onChange(of: dfu.phase) {
+                // Record the new version so the home screen's update
+                // arrow clears without another connection. A package
+                // from a file has no version the app can trust, so the
+                // remembered version becomes "unknown" in that case.
+                if dfu.phase == .done, let targetID {
+                    let tag = flashedTag
+                    manager.store.setFirmwareVersion(
+                        (tag == nil || tag == Self.fileTag) ? nil : tag, for: targetID)
+                }
+            }
         }
         .interactiveDismissDisabled(dfu.phase == .updating)
     }
@@ -87,6 +103,9 @@ struct FirmwareUpdateView: View {
                 Text("From a file...").tag(Self.fileTag)
             }
             .onChange(of: selectedTag) { choose(selectedTag) }
+            // Changing the selection mid-flash wouldn't change what's
+            // being written; don't invite it.
+            .disabled(dfu.phase == .updating)
 
             if canRollBack {
                 Button {
@@ -131,6 +150,8 @@ struct FirmwareUpdateView: View {
                         if let id = manager.connectedID, !installedVersion.isEmpty {
                             manager.setPreviousVersion(installedVersion, for: id)
                         }
+                        targetID = manager.connectedID
+                        flashedTag = selectedTag
                         manager.send(.enterUpdateMode)
                         if let packageURL { dfu.start(firmwareURL: packageURL) }
                     } label: {
@@ -141,6 +162,7 @@ struct FirmwareUpdateView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     Button {
+                        flashedTag = selectedTag
                         if let packageURL { dfu.start(firmwareURL: packageURL) }
                     } label: {
                         Label("Find a switch already in update mode", systemImage: "magnifyingglass")
@@ -189,6 +211,7 @@ struct FirmwareUpdateView: View {
                 Label("Update failed: \(message)", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
                 Button("Try again") {
+                    flashedTag = selectedTag
                     if let packageURL { dfu.start(firmwareURL: packageURL) }
                 }
                 Text("The switch stays in update mode when an update fails, so retrying is safe. To back out entirely, press its reset button.")

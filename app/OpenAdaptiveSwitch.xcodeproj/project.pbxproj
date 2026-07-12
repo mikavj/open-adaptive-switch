@@ -9,12 +9,15 @@
 /* Begin PBXBuildFile section */
 		007B52BD10B66D437AF6B355 /* NordicDFU in Frameworks */ = {isa = PBXBuildFile; productRef = F62D4B3AF2313FA9AD58A745 /* NordicDFU */; };
 		036B083DE6DD6BEACF8E419E /* SwitchProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C32B3FA2FD849DCB79B61B6 /* SwitchProtocol.swift */; };
+		08AEFA1B9E49CC7EB18B805F /* SwitchStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E36B579ABD2E67AA9994DEE /* SwitchStore.swift */; };
 		3E4CF55BA1EBA88D9DA6B39E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FFAC392F7C164481C07461C7 /* Assets.xcassets */; };
 		6215E4B65A1DCE1FBB311C91 /* FirmwareUpdateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7738D658A7B6869BEFDE1FD /* FirmwareUpdateView.swift */; };
+		637C0CA4806C29AA6145535E /* RememberedSwitchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DFFD36F6FE546B8DB50E472 /* RememberedSwitchView.swift */; };
 		761312925EE25C45EEA4C8E7 /* DFUManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8D5556968F345108BD6D89 /* DFUManager.swift */; };
 		7A3AFCDF2DC4D78CE88AFE32 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FECEC9A336434EFAA05D904 /* ScanView.swift */; };
 		9E33BB467786290E118CBC12 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62292B45A9F508AFAF821E4C /* Components.swift */; };
 		C9F32D74D93052074D68A9F1 /* DeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F95D8D9CC2FC0C91D9E4D9 /* DeviceView.swift */; };
+		DFFAAC2C3083B83F3FE37CBE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E90A67ABBACC309B942ADBE /* SettingsView.swift */; };
 		E1D7E299F28735DCD9C5608B /* ReleaseChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01F96514096682F73161F9 /* ReleaseChecker.swift */; };
 		F1C4A4D120E1B760E9DDB1E3 /* SwitchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F907B30B197EF87291DA686 /* SwitchManager.swift */; };
 		FB0BD98F0844C4CD0F8F8FF0 /* OpenAdaptiveSwitchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CCACCA62FA0F2CB32BEA01 /* OpenAdaptiveSwitchApp.swift */; };
@@ -28,9 +31,12 @@
 		62292B45A9F508AFAF821E4C /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		71CCACCA62FA0F2CB32BEA01 /* OpenAdaptiveSwitchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAdaptiveSwitchApp.swift; sourceTree = "<group>"; };
 		73F95D8D9CC2FC0C91D9E4D9 /* DeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceView.swift; sourceTree = "<group>"; };
+		8E36B579ABD2E67AA9994DEE /* SwitchStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchStore.swift; sourceTree = "<group>"; };
+		8E90A67ABBACC309B942ADBE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9623B825926E47F445658EB7 /* SlotEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotEditor.swift; sourceTree = "<group>"; };
+		9DFFD36F6FE546B8DB50E472 /* RememberedSwitchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RememberedSwitchView.swift; sourceTree = "<group>"; };
 		AD8D5556968F345108BD6D89 /* DFUManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DFUManager.swift; sourceTree = "<group>"; };
-		B65FE628B01EF506C0A7AFE1 /* OpenAdaptiveSwitch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenAdaptiveSwitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B65FE628B01EF506C0A7AFE1 /* OpenAdaptiveSwitch.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenAdaptiveSwitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7738D658A7B6869BEFDE1FD /* FirmwareUpdateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirmwareUpdateView.swift; sourceTree = "<group>"; };
 		FF01F96514096682F73161F9 /* ReleaseChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseChecker.swift; sourceTree = "<group>"; };
 		FFAC392F7C164481C07461C7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -55,6 +61,7 @@
 				FF01F96514096682F73161F9 /* ReleaseChecker.swift */,
 				1F907B30B197EF87291DA686 /* SwitchManager.swift */,
 				2C32B3FA2FD849DCB79B61B6 /* SwitchProtocol.swift */,
+				8E36B579ABD2E67AA9994DEE /* SwitchStore.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -92,7 +99,9 @@
 				62292B45A9F508AFAF821E4C /* Components.swift */,
 				73F95D8D9CC2FC0C91D9E4D9 /* DeviceView.swift */,
 				E7738D658A7B6869BEFDE1FD /* FirmwareUpdateView.swift */,
+				9DFFD36F6FE546B8DB50E472 /* RememberedSwitchView.swift */,
 				5FECEC9A336434EFAA05D904 /* ScanView.swift */,
+				8E90A67ABBACC309B942ADBE /* SettingsView.swift */,
 				9623B825926E47F445658EB7 /* SlotEditor.swift */,
 			);
 			path = Views;
@@ -128,9 +137,10 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2660;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					CC2DF5A0BC1A28B9D6D33857 = {
+						DevelopmentTeam = NA3CQULNCM;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -179,10 +189,13 @@
 				6215E4B65A1DCE1FBB311C91 /* FirmwareUpdateView.swift in Sources */,
 				FB0BD98F0844C4CD0F8F8FF0 /* OpenAdaptiveSwitchApp.swift in Sources */,
 				E1D7E299F28735DCD9C5608B /* ReleaseChecker.swift in Sources */,
+				637C0CA4806C29AA6145535E /* RememberedSwitchView.swift in Sources */,
 				7A3AFCDF2DC4D78CE88AFE32 /* ScanView.swift in Sources */,
+				DFFAAC2C3083B83F3FE37CBE /* SettingsView.swift in Sources */,
 				FEBC219EC44B71AFB7685CAC /* SlotEditor.swift in Sources */,
 				F1C4A4D120E1B760E9DDB1E3 /* SwitchManager.swift in Sources */,
 				036B083DE6DD6BEACF8E419E /* SwitchProtocol.swift in Sources */,
+				08AEFA1B9E49CC7EB18B805F /* SwitchStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,7 +206,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -225,10 +237,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = NA3CQULNCM;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -242,7 +252,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -253,7 +262,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -285,10 +293,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = NA3CQULNCM;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -309,7 +315,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -323,16 +328,19 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = NA3CQULNCM;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mikavj.openadaptiveswitch;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -345,16 +353,19 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = NA3CQULNCM;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mikavj.openadaptiveswitch;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

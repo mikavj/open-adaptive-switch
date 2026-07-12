@@ -38,7 +38,8 @@ Xcode, regenerate with `xcodegen generate` in this folder.
 | Path | What |
 |---|---|
 | `Sources/Model/SwitchProtocol.swift` | BLE UUIDs, modes, key catalog - mirrors [docs/ble-protocol.md](../docs/ble-protocol.md) |
-| `Sources/Model/SwitchManager.swift` | CoreBluetooth: scanning, connection, reads/writes |
+| `Sources/Model/SwitchManager.swift` | CoreBluetooth: scanning, connection, reads/writes, demo switch |
+| `Sources/Model/SwitchStore.swift` | remembered switches, profiles, default setup, backup files |
 | `Sources/Model/DFUManager.swift` | firmware updates via NordicDFU |
 | `Sources/Model/ReleaseChecker.swift` | latest-release lookup on GitHub |
 | `Sources/Views/` | SwiftUI screens |

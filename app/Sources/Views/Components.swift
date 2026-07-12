@@ -148,6 +148,44 @@ struct MiniBattery: View {
     }
 }
 
+// Blue up-arrow shown beside a switch when newer firmware is published
+// than what it was last seen running.
+struct UpdateBadge: View {
+    var body: some View {
+        Image(systemName: "arrow.up.circle.fill")
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.blue)
+            .accessibilityLabel("Firmware update available")
+    }
+}
+
+// "2 hours ago", "yesterday", "3 weeks ago" - for remembered switches.
+func lastConnectedText(_ date: Date) -> String {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .full
+    formatter.dateTimeStyle = .named
+    return formatter.localizedString(for: date, relativeTo: .now)
+}
+
+// Number pads have no return key at all, so every screen with text input
+// gets a Done button above the keyboard.
+extension View {
+    func keyboardDoneButton() -> some View {
+        toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { dismissKeyboard() }
+                    .fontWeight(.semibold)
+            }
+        }
+    }
+}
+
+func dismissKeyboard() {
+    UIApplication.shared.sendAction(
+        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+}
+
 struct SignalBars: View {
     let rssi: Int
 

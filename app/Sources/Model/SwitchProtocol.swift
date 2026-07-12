@@ -29,7 +29,7 @@ enum SwitchCommand: UInt8 {
     case enterUpdateMode = 3
 }
 
-enum SwitchMode: UInt8, CaseIterable, Identifiable {
+enum SwitchMode: UInt8, CaseIterable, Identifiable, Codable {
     case singleKey = 0
     case tapHold = 1
     case zones = 2
@@ -69,7 +69,7 @@ enum SwitchMode: UInt8, CaseIterable, Identifiable {
     }
 }
 
-enum AccentColorSetting: UInt8, CaseIterable, Identifiable {
+enum AccentColorSetting: UInt8, CaseIterable, Identifiable, Codable {
     case red = 0, green = 1, blue = 2
     var id: UInt8 { rawValue }
     var title: String {
@@ -100,6 +100,13 @@ struct BatteryReading: Equatable {
     var percent: UInt8
     var state: BatteryState
 
+    // For the demo switch, which has no real hardware behind it.
+    init(millivolts: UInt16, percent: UInt8, state: BatteryState) {
+        self.millivolts = millivolts
+        self.percent = percent
+        self.state = state
+    }
+
     init?(data: Data) {
         guard data.count >= 4 else { return nil }
         millivolts = UInt16(data[0]) | (UInt16(data[1]) << 8)
@@ -109,7 +116,7 @@ struct BatteryReading: Equatable {
 }
 
 // One key binding: HID modifier bitmask plus keycode.
-struct KeyBinding: Equatable {
+struct KeyBinding: Equatable, Codable {
     var modifier: UInt8 = 0
     var keycode: UInt8 = 0
 
@@ -179,12 +186,46 @@ enum HIDKey {
 }
 
 // The full editable configuration of a switch, as read over BLE.
-struct SwitchConfig: Equatable {
+// Codable so remembered switches, profiles, and the default setup can be
+// stored and exported as JSON.
+struct SwitchConfig: Equatable, Codable {
     var mode: SwitchMode = .singleKey
     var bindings: [KeyBinding] = [KeyBinding(), KeyBinding(), KeyBinding()]
     var sleepMinutes: UInt16 = 30
     var name: String = ""
     var accent: AccentColorSetting = .red
+
+    init(mode: SwitchMode = .singleKey,
+         bindings: [KeyBinding] = [KeyBinding(), KeyBinding(), KeyBinding()],
+         sleepMinutes: UInt16 = 30, name: String = "",
+         accent: AccentColorSetting = .red) {
+        self.mode = mode
+        self.bindings = bindings
+        self.sleepMinutes = sleepMinutes
+        self.name = name
+        self.accent = accent
+    }
+
+    // What a switch ships with (mirrors the firmware's factory settings:
+    // F13 for the single key, F14 and F15 for the hold/long slots). Used
+    // to seed new profiles and the default configuration, so they open
+    // showing real keys instead of "Custom code 0".
+    static let factoryDefault = SwitchConfig(
+        bindings: [KeyBinding(keycode: 0x68),
+                   KeyBinding(keycode: 0x69),
+                   KeyBinding(keycode: 0x6A)])
+
+    // The rest of the app indexes bindings[0..<3]; a hand-edited or
+    // truncated backup file must not be able to break that invariant.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try c.decodeIfPresent(SwitchMode.self, forKey: .mode) ?? .singleKey
+        let decoded = try c.decodeIfPresent([KeyBinding].self, forKey: .bindings) ?? []
+        bindings = Array((decoded + [KeyBinding(), KeyBinding(), KeyBinding()]).prefix(3))
+        sleepMinutes = try c.decodeIfPresent(UInt16.self, forKey: .sleepMinutes) ?? 30
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        accent = try c.decodeIfPresent(AccentColorSetting.self, forKey: .accent) ?? .red
+    }
 
     var keymapData: Data {
         var bytes = [UInt8]()
