@@ -11,6 +11,7 @@ struct ScanView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("hasSeenIntro") private var hasSeenIntro = false
     @AppStorage("autoUpdate") private var autoUpdate = true
+    @State private var showNewBoardSetup = false
 
     var body: some View {
         NavigationStack {
@@ -73,6 +74,13 @@ struct ScanView: View {
             .sheet(isPresented: $manager.updaterPresented,
                    onDismiss: { manager.updateFlowEnded() }) {
                 FirmwareUpdateView(latestRelease: manager.latestRelease)
+                    .environmentObject(manager)
+            }
+            // First flash of a blank board; needs no connection, so a
+            // plain local sheet is enough.
+            .sheet(isPresented: $showNewBoardSetup,
+                   onDismiss: { manager.updateFlowEnded() }) {
+                FirmwareUpdateView(latestRelease: manager.latestRelease, setupMode: true)
                     .environmentObject(manager)
             }
             .onAppear { if hasSeenIntro { manager.startScan() } }
@@ -206,11 +214,16 @@ struct ScanView: View {
             }
 
             Section {
+                Button {
+                    showNewBoardSetup = true
+                } label: {
+                    Label("Set up a new board...", systemImage: "wrench.and.screwdriver")
+                }
                 Link(destination: URL(string: "https://openadaptiveswitch.com/")!) {
                     Label("About Open Adaptive Switch", systemImage: "globe")
                 }
             } footer: {
-                Text("An open-source Bluetooth switch for iOS Switch Control. This app changes what the button sends, its sleep timer, name, and light, and installs firmware updates.")
+                Text("An open-source Bluetooth switch for iOS Switch Control. This app changes what the button sends, its sleep timer, name, and light, and installs firmware updates. Set up a new board installs the firmware on a blank Seeed board over Bluetooth - no computer needed.")
             }
         }
     }

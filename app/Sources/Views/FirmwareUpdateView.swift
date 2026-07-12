@@ -27,6 +27,11 @@ struct FirmwareUpdateView: View {
 
     let latestRelease: FirmwareRelease?
 
+    // Guided first flash of a blank board, reached from the home screen
+    // with nothing connected: same machinery, wording for someone
+    // holding a factory-fresh Seeed board instead of a working switch.
+    var setupMode = false
+
     private static let fileTag = "\u{0000}file"
 
     @State private var releases: [FirmwareRelease] = []
@@ -55,7 +60,7 @@ struct FirmwareUpdateView: View {
                     }
                 }
             }
-            .navigationTitle("Firmware update")
+            .navigationTitle(setupMode ? "Set up a new board" : "Firmware update")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -129,7 +134,9 @@ struct FirmwareUpdateView: View {
         } header: {
             Text("Version")
         } footer: {
-            Text("Choose the latest release, an older version, or a .zip you already have. Rolling back reinstalls the version the switch ran before its last update.")
+            Text(setupMode
+                 ? "New boards normally receive the latest release. A .zip you already have works as well."
+                 : "Choose the latest release, an older version, or a .zip you already have. Rolling back reinstalls the version the switch ran before its last update.")
         }
     }
 
@@ -144,7 +151,7 @@ struct FirmwareUpdateView: View {
         Section {
             switch dfu.phase {
             case .idle:
-                if manager.phase == .ready {
+                if manager.phase == .ready && !setupMode {
                     Button {
                         // Remember what this switch is replacing, for a later rollback.
                         if let id = manager.connectedID, !installedVersion.isEmpty {
@@ -165,15 +172,21 @@ struct FirmwareUpdateView: View {
                         flashedTag = selectedTag
                         if let packageURL { dfu.start(firmwareURL: packageURL) }
                     } label: {
-                        Label("Find a switch already in update mode", systemImage: "magnifyingglass")
+                        Label(setupMode ? "Search for the board"
+                                        : "Find a switch already in update mode",
+                              systemImage: "magnifyingglass")
                     }
-                    Text("Not connected to a switch. If one is already in update mode (for example after an earlier attempt), search for it here; otherwise close this, connect, and start again.")
+                    Text(setupMode
+                         ? "Power the board over USB or battery, then double-tap the small reset button beside the USB-C port. That puts it in update mode - search within about half a minute."
+                         : "Not connected to a switch. If one is already in update mode (for example after an earlier attempt), search for it here; otherwise close this, connect, and start again.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             case .searching:
                 HStack { ProgressView(); Text(dfu.statusText) }
-                Text("This searches for about half a minute. To back out, press the switch's reset button once; it restarts with its old firmware.")
+                Text(setupMode
+                     ? "This searches for about half a minute. If nothing turns up, double-tap the reset button again and retry."
+                     : "This searches for about half a minute. To back out, press the switch's reset button once; it restarts with its old firmware.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             case .choosing:
@@ -205,7 +218,10 @@ struct FirmwareUpdateView: View {
                 }
                 .padding(.vertical, 4)
             case .done:
-                Label("Update installed. The switch is restarting with its settings kept.", systemImage: "checkmark.circle.fill")
+                Label(setupMode
+                      ? "Firmware installed. The board restarts as a switch - press its button once and it will appear on the home screen."
+                      : "Update installed. The switch is restarting with its settings kept.",
+                      systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             case .failed(let message):
                 Label("Update failed: \(message)", systemImage: "exclamationmark.triangle")

@@ -122,6 +122,11 @@ everything user-visible is set over BLE afterward
 
 ## Wired flash
 
+Since app 1.1 a blank board can be flashed from the phone instead: home
+screen, "Set up a new board...", then double-tap the board's reset
+button when prompted. The wired path below remains for development and
+recovery.
+
 For the first flash of a new board, or recovery:
 
 ```

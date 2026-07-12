@@ -3,7 +3,9 @@
 Native companion app for Open Adaptive Switch: find a switch, change what
 its button sends, set the sleep timer, rename it, pick the light color,
 watch the battery, and install firmware updates - all in one place, no
-extra apps.
+extra apps. It can also flash the firmware onto a blank Seeed board over
+Bluetooth ("Set up a new board" on the home screen), so building a switch
+does not require a computer.
 
 (The app's display name on the home screen is "OA Switch" so it fits
 under the icon; everywhere else it is "Open Adaptive Switch".)
