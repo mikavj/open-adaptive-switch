@@ -48,7 +48,7 @@ struct DeviceView: View {
                 }
             } footer: {
                 if let id = manager.connectedID {
-                    Text("Bluetooth ID \(id.uuidString) - an identifier iOS assigns, and a way to tell apart two switches with the same name.")
+                    Text("Bluetooth ID \(id.uuidString)")
                 }
             }
 
