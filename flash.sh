@@ -7,6 +7,11 @@
 # Detects a connected XIAO nRF52840 (plain or Sense), shows the last flash
 # on this host, lets you pick a firmware folder, compiles + uploads, then
 # records what was flashed.
+#
+# On a machine that has never built the firmware it also checks for the
+# toolchain (arduino-cli, the Seeed nRF52 core, adafruit-nrfutil on Linux)
+# and offers to install whatever is missing. Once everything is present
+# the check passes silently.
 
 set -uo pipefail
 
@@ -33,6 +38,98 @@ fi
 
 echo "== Open Adaptive Switch flasher =="
 echo
+
+# --- 0. Toolchain check (first run on a new machine offers to install) ---
+SEEED_URL="https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json"
+
+check_toolchain() {
+  # sets MISSING to a space-separated list (plain string: macOS bash 3.2
+  # chokes on empty arrays under set -u)
+  MISSING=""
+  if ! command -v arduino-cli >/dev/null 2>&1; then
+    MISSING="arduino-cli seeed-core"
+  elif ! arduino-cli core list 2>/dev/null | grep -q "Seeeduino:nrf52"; then
+    MISSING="seeed-core"
+  fi
+  # macOS gets adafruit-nrfutil bundled with the core; Linux does not
+  if [ "$(uname)" = "Linux" ] && ! command -v adafruit-nrfutil >/dev/null 2>&1; then
+    MISSING="$MISSING adafruit-nrfutil"
+  fi
+  MISSING="${MISSING# }"
+}
+
+install_tool() {
+  case "$1" in
+    arduino-cli)
+      if [ "$(uname)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+        brew install arduino-cli
+      else
+        echo "Can't install arduino-cli automatically on this machine."
+        if [ "$(uname)" = "Darwin" ]; then
+          echo "  Install Homebrew (https://brew.sh), or install arduino-cli"
+          echo "  another way, then re-run this script."
+        else
+          echo "  Install it with your package manager, e.g.:"
+          echo "    sudo pacman -S arduino-cli    (Arch/CachyOS)"
+          echo "    sudo apt install arduino-cli  (Debian/Ubuntu)"
+          echo "  then re-run this script."
+        fi
+        return 1
+      fi
+      ;;
+    seeed-core)
+      echo "Installing the Seeed nRF52 board package (compiler + board"
+      echo "support; a large download, takes a few minutes)..."
+      arduino-cli core update-index --additional-urls "$SEEED_URL" \
+        && arduino-cli core install Seeeduino:nrf52 --additional-urls "$SEEED_URL"
+      ;;
+    adafruit-nrfutil)
+      # Linux only. A venv keeps PEP-668 distros (Arch) happy.
+      python3 -m venv "$HOME/.arduino15-tools/nrfutil-venv" \
+        && "$HOME/.arduino15-tools/nrfutil-venv/bin/pip" install --upgrade pip adafruit-nrfutil \
+        && mkdir -p "$HOME/.local/bin" \
+        && ln -sf "$HOME/.arduino15-tools/nrfutil-venv/bin/adafruit-nrfutil" \
+                  "$HOME/.local/bin/adafruit-nrfutil" \
+        || return 1
+      case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) echo "NOTE: ~/.local/bin is not in your PATH; add it so adafruit-nrfutil is found." ;;
+      esac
+      ;;
+  esac
+}
+
+check_toolchain
+if [ -n "$MISSING" ]; then
+  echo "This machine is missing tools needed to build and flash:"
+  for m in $MISSING; do
+    case "$m" in
+      arduino-cli)      echo "  - arduino-cli: compiles the firmware and talks to the board" ;;
+      seeed-core)       echo "  - Seeed nRF52 board package: compiler and board support" ;;
+      adafruit-nrfutil) echo "  - adafruit-nrfutil: packages firmware for the bootloader" ;;
+    esac
+  done
+  echo
+  read -r -p "Install now? [Y/n] " ans
+  if [[ "$ans" =~ ^[nN] ]]; then
+    echo "Skipping. Continuing anyway; see SETUP.md if the build fails."
+  else
+    for m in $MISSING; do
+      if ! install_tool "$m"; then
+        echo
+        echo "ERROR: could not install $m. SETUP.md has the manual steps."
+        exit 1
+      fi
+    done
+    check_toolchain
+    if [ -n "$MISSING" ]; then
+      echo "ERROR: still missing after install: $MISSING. See SETUP.md."
+      exit 1
+    fi
+    echo "Toolchain ready."
+  fi
+  echo
+fi
 
 # --- 1. Linux only: group check (uucp/lock needed for /dev/ttyACM* on Arch) ---
 if [ "$(uname)" = "Linux" ]; then

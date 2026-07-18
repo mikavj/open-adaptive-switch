@@ -37,6 +37,13 @@ the config page over Bluetooth.
 You need `arduino-cli`, the Seeed nRF52 board package, and
 `adafruit-nrfutil` (the DFU upload tool).
 
+`./flash.sh` checks for all of this when it starts and offers to install
+whatever is missing - on macOS through Homebrew, on Linux by printing
+your distro's commands rather than running sudo itself. Once everything
+is present the check passes silently, so on a machine that's already set
+up the script goes straight to flashing. The steps below are the manual
+equivalent, for reference or if the automatic install fails.
+
 ```
 arduino-cli config init --overwrite
 arduino-cli config add board_manager.additional_urls \
@@ -127,6 +134,18 @@ screen, "Set up a new board...", then double-tap the board's reset
 button when prompted. The wired path below remains for development and
 recovery.
 
+What to expect from a brand-new board: Seeed ships the XIAO running a
+factory demo that cycles the LED red, blue, green quickly. The demo has
+no Bluetooth, so the board shows up nowhere - not in the app's switch
+list, not in iOS Bluetooth settings - until it enters the bootloader.
+Double-tap the reset button (two quick taps, like a mouse double-click)
+and the cycling stops; the LED can look off from there because the
+bootloader's red pulse is faint. The reliable sign is elsewhere: on a
+computer, a USB drive named `XIAO-SENSE` appears; from a phone, the
+board becomes visible to the app's "Set up a new board" flow. Only that
+flow can see it - the normal switch chooser filters on the config
+service, which the bootloader doesn't advertise.
+
 For the first flash of a new board, or recovery:
 
 ```
@@ -135,7 +154,9 @@ For the first flash of a new board, or recovery:
 
 It detects the connected XIAO, shows the last flash recorded in
 `.flash_state` (a local, git-ignored file the script writes), compiles,
-uploads, and records the result.
+uploads, and records the result. On a machine that has never built the
+firmware it first offers to install the toolchain (see
+[Toolchain](#toolchain-any-os) above).
 
 Manual steps, if you prefer them (run from the project root; substitute
 your port):

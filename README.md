@@ -107,7 +107,12 @@ Three ways, most convenient first:
    directly: put the switch into update mode and the same page or app
    sends it the new firmware. Both can also flash a blank board ("Set
    up a new board"), so a switch can be built and updated without a
-   computer. Nordic's free
+   computer. A brand-new XIAO arrives running a factory demo that
+   cycles the LED red, blue, green and has no Bluetooth at all;
+   double-tap its reset button and the cycling stops - the LED may
+   look off, which is normal - and the board is ready for "Set up a
+   new board". It appears only in that flow, not in the regular switch
+   list or in iOS Bluetooth settings. Nordic's free
    [nRF Device Firmware Update](https://apps.apple.com/app/id1624454660)
    app works too, with the release .zip.
 2. **Any computer, no software.** Download the release .uf2, double-tap
@@ -115,7 +120,8 @@ Three ways, most convenient first:
    onto it; the switch reboots updated. (The copy dialog may report an
    error at the end - that's the drive vanishing on reboot, and the
    update still succeeded.)
-3. **Wired, with the toolchain.** `./flash.sh` - see
+3. **Wired, with the toolchain.** `./flash.sh` - it offers to install
+   its own toolchain the first time it runs on a machine; see
    [SETUP.md](SETUP.md). For development and recovery; a new board can
    be set up wirelessly instead (option 1).
 
