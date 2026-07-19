@@ -107,7 +107,10 @@ Three ways, most convenient first:
    directly: put the switch into update mode and the same page or app
    sends it the new firmware. Both can also flash a blank board ("Set
    up a new board"), so a switch can be built and updated without a
-   computer. A brand-new XIAO arrives running a factory demo that
+   computer. The blank-board flow is still experimental: some fresh
+   factory boards refuse the wireless first flash. If yours does, put
+   the first firmware on over USB (option 2) and update wirelessly from
+   then on. A brand-new XIAO arrives running a factory demo that
    cycles the LED red, blue, green and has no Bluetooth at all;
    double-tap its reset button and the cycling stops - the LED may
    look off, which is normal - and the board is ready for "Set up a
