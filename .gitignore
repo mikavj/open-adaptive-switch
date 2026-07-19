@@ -15,3 +15,17 @@ release/
 xcuserdata/
 *.xcuserstate
 app/DerivedData/
+
+*.xcarchive
+*.ipa
+*.dSYM
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.certSigningRequest
+*.keychain
+.env
+*.mp4
+*.MP4
+*.mov
